@@ -548,7 +548,7 @@
 
 	ClientTab:CreateToggle({
 		Name = "SupplyDrop ESP",
-		CurrentValue = true,
+		CurrentValue = false,
 		Flag = "SupplyDropESP",
 		Callback = function(state)
 			_G.SupplyDropESP = state
