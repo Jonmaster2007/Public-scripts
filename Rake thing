@@ -319,7 +319,7 @@
 
 	ClientTab:CreateToggle({
 		Name = "No Fog",
-		CurrentValue = true,
+		CurrentValue = false,
 		Flag = "NoFog",
 		Callback = function(state)
 			_G.NoFog = state
@@ -527,7 +527,7 @@
 
 	ClientTab:CreateToggle({
 		Name = "Flare Gun ESP",
-		CurrentValue = true,
+		CurrentValue = false,
 		Flag = "FlareGunESP",
 		Callback = function(state)
 			_G.FlareGunESP = state
