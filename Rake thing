@@ -1019,16 +1019,6 @@
 		end,
 	})
 
-	ExploitsTab:CreateButton({
-		Name = "Remove Invis Walls",
-		Callback = function()
-			for i,v in pairs(ClonedService("Workspace").Filter.InvisibleWalls:GetChildren()) do
-				if v.Name:lower() == "invisiblewall" or v.Name:lower() == "invis" then
-					v:Remove()
-				end
-			end
-		end,
-	})
 
 	ExploitsTab:CreateToggle({
 		Name = "Hide",
