@@ -1,0 +1,657 @@
+--[[ keybinds for revamped Grave Diggers Script!
+  hold X for aimlock 
+  shift + [ switches the part from head to torso
+  shift + ] toggles teamcheck ON by default
+  ctrl + [ makes selected player's outlines blue
+  ctrl + ] toggles the outline loop
+  ctrl + P Toggles aimlock to lock onto torso of players with unbreakable helmets ON by default (if enabled will always target torso of lancer players cause their helmets are indestructible.)
+  ctrl + P and if the aim part is torso it forces aimlock to aim on head if they don't have a helmet ON by default (if enabled will always target torso of lancer players cause their helmets are indestructible.)
+  shift + P Toggles the outlines and the targetbox
+  ctrl + shift + \ Deletes the spawn barriers so you can shoot people in spawn (Blatant)
+  ctrl + L Toggles aimlock smoothness
+  ctrl + shift + L opens the tpwalk speed UI
+  Ctrl + Shift + P Toggles tpwalking, ON by default
+  Shift + Y Toggles Keybinds UI
+  Dont forget to change your X keybind ingame to B and your B keybind to N for INGAME settings!]]
+local aim_config = _G.JALON_AIMCONFIG or {
+    Enabled = true,
+    KeyActivation = Enum.KeyCode.X,
+    FOV = 1377,
+    TeamCheck = true,
+    DistanceCheck = true,
+    VisibleCheck = true,
+    Smoothness = 0,
+    Prediction = {
+        Enabled = false,
+        Value = 0.185
+    },
+    aimPartTarget = "Head",
+    ForceLancerTorso = true 
+}
+_G.JALON_AIMCONFIG = _G.JALON_AIMCONFIG or aim_config
+
+local input_service = game:GetService("UserInputService")
+local players = game:GetService("Players")
+local run_service = game:GetService("RunService")
+local workspace = game:GetService("Workspace")
+
+local camera = workspace.CurrentCamera
+local player = players.LocalPlayer
+local fovCircle, targetBox = Drawing.new("Circle"), Drawing.new("Square")
+
+local current_target
+local is_locked_on = false
+local showTargetBox = true
+local shiftDown, ctrlDown = false, false
+
+local function is_player_valid(plrArg)
+    local plrChar = plrArg.Character
+    local plrHumanoid = (plrChar and plrChar:FindFirstChildWhichIsA("Humanoid"))
+    local target_part = plrChar and plrChar:FindFirstChild(aim_config.aimPartTarget)
+    local is_enemy = not aim_config.TeamCheck or plrArg.Team ~= player.Team
+
+    return plrArg ~= player and is_enemy and (plrChar and (plrHumanoid and plrHumanoid.Health > 0)) and not plrArg.Character:FindFirstChildWhichIsA("ForceField"), target_part
+end
+
+local function get_vel_prediction(velocity)
+    return Vector3.new(velocity.X, math.clamp((velocity.Y * 0.5), -5, 10), velocity.Z)
+end
+
+local function has_invuln_helm(plr)
+    local folders = {workspace:FindFirstChild("empire_team"), workspace:FindFirstChild("nation_team")}
+
+    for _, folder in ipairs(folders) do
+        if folder and folder:IsA("Folder") then
+            local charModel = folder:FindFirstChild(plr.Name)
+            if charModel and charModel:FindFirstChild("invuln_helm") then
+                return true
+            end
+        end
+    end
+
+    return false
+end
+
+local function has_helmet(plr)
+    local folders = {workspace:FindFirstChild("empire_team"), workspace:FindFirstChild("nation_team")}
+
+    for _, folder in ipairs(folders) do
+        if folder and folder:IsA("Folder") then
+            local charModel = folder:FindFirstChild(plr.Name)
+            if charModel and charModel:FindFirstChild("helmet") then
+                return true
+            end
+        end
+    end
+
+    return false
+end
+
+local function get_camera_prediction(predicting_part)
+    return predicting_part.CFrame + get_vel_prediction(predicting_part.Velocity) * aim_config.Prediction.Value
+end
+
+local function get_closest_to_center()
+    if is_locked_on and current_target then
+        return current_target
+    end
+
+    local closest_data = {aimPart = nil, center_dist = math.huge}
+
+    for _, plr in players:GetPlayers() do
+        local passed, target_part = is_player_valid(plr)
+
+        if passed and target_part then
+            local char = plr.Character
+
+            if aim_config.ForceLancerTorso then
+                local helmet = has_helmet(plr)
+                local invuln = has_invuln_helm(plr)
+
+                if aim_config.aimPartTarget == "Torso" then
+                    if not helmet then
+                        target_part = char and char:FindFirstChild("Head") or target_part
+                    elseif invuln then
+                        target_part = char and char:FindFirstChild("Torso") or target_part
+                    end
+                elseif aim_config.aimPartTarget == "Head" then
+                    if invuln then
+                        target_part = char and char:FindFirstChild("Torso") or target_part
+                    end
+                end
+            end
+
+            local screen_pos, on_screen = camera:WorldToViewportPoint(target_part.Position)
+            local center_screen = Vector2.new(camera.ViewportSize.X / 2, camera.ViewportSize.Y / 2)
+            local center_dist = (center_screen - Vector2.new(screen_pos.X, screen_pos.Y)).Magnitude
+
+            if center_dist <= aim_config.FOV and (not aim_config.VisibleCheck or on_screen) then
+                if center_dist < closest_data.center_dist then
+                    closest_data.aimPart = target_part
+                    closest_data.center_dist = center_dist
+                end
+            end
+        end
+    end
+
+    return closest_data.aimPart and closest_data or nil
+end
+
+targetBox.Color = Color3.fromRGB(0, 185, 35)
+targetBox.Filled = true
+targetBox.Size = Vector2.new(15, 15)
+targetBox.Thickness = 20
+targetBox.Transparency = 0.4
+
+fovCircle.Color = Color3.fromRGB(0, 144, 255)
+fovCircle.Thickness = 2
+fovCircle.Transparency = 0.6
+fovCircle.Visible = true
+
+input_service.InputBegan:Connect(function(input, gameProcessed)
+    if input.UserInputType ~= Enum.UserInputType.Keyboard then return end
+
+    shiftDown = input_service:IsKeyDown(Enum.KeyCode.LeftShift) or input_service:IsKeyDown(Enum.KeyCode.RightShift)
+    ctrlDown = input_service:IsKeyDown(Enum.KeyCode.LeftControl) or input_service:IsKeyDown(Enum.KeyCode.RightControl)
+
+    -- Shift-exclusive keybinds
+    if shiftDown and not ctrlDown then
+        if input.KeyCode == Enum.KeyCode.RightBracket then
+            aim_config.TeamCheck = not aim_config.TeamCheck
+        elseif input.KeyCode == Enum.KeyCode.LeftBracket then
+            aim_config.aimPartTarget = (aim_config.aimPartTarget == "Head") and "Torso" or "Head"
+        elseif input.KeyCode == Enum.KeyCode.P then
+            showTargetBox = not showTargetBox
+        end
+    end
+
+    -- Ctrl-exclusive keybinds
+    if ctrlDown and not shiftDown then
+        if input.KeyCode == Enum.KeyCode.P then
+            aim_config.ForceLancerTorso = not aim_config.ForceLancerTorso
+        elseif input.KeyCode == Enum.KeyCode.L then
+            aim_config.Smoothness = (aim_config.Smoothness == 0) and 0.3 or 0
+        end
+    end
+
+    if input.KeyCode == aim_config.KeyActivation then
+        is_locked_on = true
+        current_target = get_closest_to_center()
+    end
+end)
+
+input_service.InputEnded:Connect(function(input, gameProcessed)
+    if input.KeyCode == aim_config.KeyActivation then
+        is_locked_on = false
+        current_target = nil
+    end
+end)
+
+run_service.PreSimulation:Connect(function()
+    if not is_locked_on then
+        current_target = get_closest_to_center()
+    end
+
+    fovCircle.Radius = aim_config.FOV
+    fovCircle.Position = Vector2.new(camera.ViewportSize.X / 2, camera.ViewportSize.Y / 2)
+
+    if current_target then
+        local screen_pos, on_screen = camera:WorldToViewportPoint(current_target.aimPart.Position)
+
+        targetBox.Color = Color3.fromRGB(0, 185, 35)
+        targetBox.Visible = on_screen and showTargetBox
+        targetBox.Position = Vector2.new(screen_pos.X, screen_pos.Y) - (targetBox.Size / 2)
+
+        if input_service:IsKeyDown(aim_config.KeyActivation) and is_locked_on then
+            local target_position = aim_config.Prediction.Enabled and get_camera_prediction(current_target.aimPart) or current_target.aimPart
+            local horizontal_look = CFrame.lookAt(camera.CFrame.Position, target_position.Position)
+
+            -- Apply smoothness if set
+            if aim_config.Smoothness > 0 then
+                camera.CFrame = camera.CFrame:Lerp(horizontal_look, aim_config.Smoothness)
+            else
+                camera.CFrame = horizontal_look
+            end
+        end
+    else
+        targetBox.Visible = false
+        targetBox.Position = Vector3.zero
+    end
+end)
+
+
+
+
+
+-- Player outlines script 2
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local Camera = workspace.CurrentCamera
+
+local localPlayer = Players.LocalPlayer
+local excludedPlayers: { [Player]: true } = {}
+local outlinesEnabled = true
+local shiftDown, ctrlDown = false, false
+
+local function getTeamColor()
+    local firstTeam = nil
+    for _, player in Players:GetPlayers() do
+        if player.Team then
+            if not firstTeam then
+                firstTeam = player.Team.TeamColor
+            elseif firstTeam ~= player.Team.TeamColor then
+                return nil
+            end
+        end
+    end
+    return Color3.fromRGB(0, 185, 45) -- Green
+end
+
+local function applyOutlines()
+    local sameTeamColor = getTeamColor()
+
+    for _, player in Players:GetPlayers() do
+        if player ~= localPlayer and player.Character then
+            local character = player.Character
+            local highlight = character:FindFirstChildOfClass("Highlight") or Instance.new("Highlight")
+            highlight.Adornee = character
+            highlight.Parent = character
+            highlight.FillTransparency = 1
+            highlight.OutlineTransparency = 0.2
+
+            if excludedPlayers[player] then
+                highlight.OutlineColor = Color3.fromRGB(0, 145, 250) -- Blue
+            else
+                local teamColor = sameTeamColor or (player.Team and player.Team.TeamColor.Color or Color3.fromRGB(255, 255, 255))
+                highlight.OutlineColor = teamColor
+            end
+        end
+    end
+end
+
+local function getClosestPlayerToMouse(): Player?
+    local mouseLocation = UserInputService:GetMouseLocation()
+    local closest: Player? = nil
+    local shortestDist = math.huge
+
+    for _, player in Players:GetPlayers() do
+        if player ~= localPlayer and player.Character then
+            local head = player.Character:FindFirstChild("Head")
+            if head then
+                local pos, onScreen = Camera:WorldToViewportPoint(head.Position)
+                if onScreen then
+                    local dist = (Vector2.new(pos.X, pos.Y) - mouseLocation).Magnitude
+                    if dist < shortestDist then
+                        shortestDist = dist
+                        closest = player
+                    end
+                end
+            end
+        end
+    end
+
+    return closest
+end
+
+-- Input Bindings
+UserInputService.InputBegan:Connect(function(input, processed)
+    if input.UserInputType ~= Enum.UserInputType.Keyboard then return end
+
+    shiftDown = UserInputService:IsKeyDown(Enum.KeyCode.LeftShift) or UserInputService:IsKeyDown(Enum.KeyCode.RightShift)
+    ctrlDown = UserInputService:IsKeyDown(Enum.KeyCode.LeftControl) or UserInputService:IsKeyDown(Enum.KeyCode.RightControl)
+
+    -- Ctrl-exclusive keybinds
+    if ctrlDown and not shiftDown then
+        if input.KeyCode == Enum.KeyCode.LeftBracket then
+            local target = getClosestPlayerToMouse()
+            if target then
+                excludedPlayers[target] = not excludedPlayers[target]
+            end
+        elseif input.KeyCode == Enum.KeyCode.RightBracket then
+            excludedPlayers = {}
+
+            for _, player in Players:GetPlayers() do
+                if player.Character then
+                    local highlight = player.Character:FindFirstChildOfClass("Highlight")
+                    if highlight then
+                        highlight:Destroy()
+                    end
+                end
+            end
+
+            outlinesEnabled = not outlinesEnabled
+        end
+
+    -- Shift-exclusive keybinds
+    elseif shiftDown and not ctrlDown then
+        if input.KeyCode == Enum.KeyCode.P then
+            outlinesEnabled = not outlinesEnabled
+        end
+    end
+end)
+
+-- Outline Loop
+task.spawn(function()
+    while true do
+        task.wait(1)
+        if outlinesEnabled then
+            applyOutlines()
+        else
+            -- Clear all highlights when disabled
+            for _, player in Players:GetPlayers() do
+                if player.Character then
+                    local highlight = player.Character:FindFirstChildOfClass("Highlight")
+                    if highlight then
+                        highlight:Destroy()
+                    end
+                end
+            end
+        end
+    end
+end)
+
+
+
+
+local UserInputService = game:GetService("UserInputService")
+local Workspace = game:GetService("Workspace")
+
+local function deleteMultipleProtections()
+    local toRemove = {}
+
+    local function collect(roomKey, partName)
+        local ss = Workspace:FindFirstChild("serverStuff")
+        if not ss then return end
+        local room = ss:FindFirstChild(roomKey)
+        if not room then return end
+        local prot = room:FindFirstChild(roomKey:gsub("_spawnroom", "_spawnprot"))
+        if not prot then return end
+
+        for _, obj in ipairs(prot:GetChildren()) do
+            if obj:IsA("BasePart") and obj.Name:lower() == partName:lower() then
+                table.insert(toRemove, obj)
+            end
+        end
+    end
+
+    collect("empire_spawnroom", "basecolour")
+    collect("empire_spawnroom", "innerprotection")
+    collect("nation_spawnroom", "basecolour")
+    collect("nation_spawnroom", "innerprotection")
+
+    for _, inst in ipairs(toRemove) do
+        inst:Destroy()
+    end
+end
+
+UserInputService.InputBegan:Connect(function(input, processed)
+    if processed then return end
+
+    local shiftDown = UserInputService:IsKeyDown(Enum.KeyCode.LeftShift) or UserInputService:IsKeyDown(Enum.KeyCode.RightShift)
+    local ctrlDown = UserInputService:IsKeyDown(Enum.KeyCode.LeftControl) or UserInputService:IsKeyDown(Enum.KeyCode.RightControl)
+
+    if ctrlDown and shiftDown and input.KeyCode == Enum.KeyCode.BackSlash then
+        deleteMultipleProtections()
+    end
+end)
+
+
+
+
+
+local UserInputService = game:GetService("UserInputService")
+
+-- Create UI
+local screenGui = Instance.new("ScreenGui")
+screenGui.Parent = game.CoreGui
+screenGui.Enabled = false
+
+local keybindsFrame = Instance.new("Frame")
+keybindsFrame.Size = UDim2.new(0, 270, 0, 485)  -- Increased height to fit additional keybind
+keybindsFrame.Position = UDim2.new(1, -280, 0, -10)
+keybindsFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+keybindsFrame.BorderSizePixel = 2
+keybindsFrame.BorderColor3 = Color3.fromRGB(0, 145, 250)
+keybindsFrame.Parent = screenGui
+
+local keybindsLabel = Instance.new("TextLabel")
+keybindsLabel.RichText = true
+keybindsLabel.Text = [[
+<font color="rgb(0,185,45)">Keybinds for revamped Grave Diggers Script!</font>
+<p><font color="rgb(0,185,45)">Hold X</font> <font color="rgb(120,175,255)">for aimlock</font></p>
+<p><font color="rgb(0,185,45)">Shift + [</font> <font color="rgb(120,175,255)">switches part from head to torso</font></p>
+<p><font color="rgb(0,185,45)">Shift + ]</font> <font color="rgb(120,175,255)">toggles teamcheck (ON by default)</font></p>
+<p><font color="rgb(0,185,45)">Ctrl + [</font> <font color="rgb(120,175,255)">makes selected player's outlines blue</font></p>
+<p><font color="rgb(0,185,45)">Ctrl + ]</font> <font color="rgb(120,175,255)">toggles the outline loop</font></p>
+<p><font color="rgb(0,185,45)">Ctrl + P</font> <font color="rgb(120,175,255)">toggles aimlock to lock onto torso of players with unbreakable helmets ON by default (if enabled will always target torso of lancer players cause their helmets are indestructible.)</font></p>
+<p><font color="rgb(0,185,45)">Ctrl + P</font> <font color="rgb(120,175,255)">and if the aim part is torso it forces aimlock to aim on head if they don't have a helmet ON by default (if enabled will always target torso of lancer players cause their helmets are indestructible.)</font></p>
+<p><font color="rgb(0,185,45)">Shift + P</font> <font color="rgb(120,175,255)">toggles outlines and targetbox</font></p>
+<p><font color="rgb(0,185,45)">Ctrl + Shift + \</font> <font color="rgb(120,175,255)">deletes spawn barriers (blatant)</font></p>
+<p><font color="rgb(0,185,45)">Ctrl + L</font> <font color="rgb(120,175,255)">toggles aimlock smoothness</font></p>
+<p><font color="rgb(0,185,45)">Ctrl + Shift + L</font> <font color="rgb(120,175,255)">opens tpwalk speed UI</font></p>
+<p><font color="rgb(0,185,45)">Ctrl + Shift + P</font> <font color="rgb(120,175,255)">toggles tpwalking (ON by default)</font></p>
+<p><font color="rgb(0,185,45)">Shift + Y</font> <font color="rgb(120,175,255)">toggles Keybinds UI</font></p>
+]]
+keybindsLabel.Size = UDim2.new(1, 0, 0, 460)  -- Increased size to fit the new keybind
+keybindsLabel.Position = UDim2.new(0, 0, 0, 5)
+keybindsLabel.BackgroundTransparency = 1
+keybindsLabel.TextColor3 = Color3.fromRGB(120, 175, 255)
+keybindsLabel.TextWrapped = true
+keybindsLabel.TextScaled = false
+keybindsLabel.Font = Enum.Font.SourceSansBold
+keybindsLabel.TextSize = 17
+keybindsLabel.Parent = keybindsFrame
+
+local creditLabel = Instance.new("TextLabel")
+creditLabel.Text = "Created by Jonmaster1"
+creditLabel.Size = UDim2.new(1, 0, 0, 30)
+creditLabel.Position = UDim2.new(0, 0, 0, 445)
+creditLabel.BackgroundTransparency = 1
+creditLabel.TextColor3 = Color3.fromRGB(0, 185, 45)
+creditLabel.TextScaled = false
+creditLabel.Font = Enum.Font.SourceSansBold
+creditLabel.TextSize = 27
+creditLabel.Parent = keybindsFrame
+
+
+-- Make UI draggable
+local dragging, dragInput, dragStart, startPos
+
+keybindsFrame.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        dragging = true
+        dragStart = input.Position
+        startPos = keybindsFrame.Position
+
+        input.Changed:Connect(function()
+            if input.UserInputState == Enum.UserInputState.End then
+                dragging = false
+            end
+        end)
+    end
+end)
+
+keybindsFrame.InputChanged:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseMovement then
+        dragInput = input
+    end
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+    if input == dragInput and dragging then
+        local delta = input.Position - dragStart
+        keybindsFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+    end
+end)
+
+-- Toggle UI visibility with Shift + Y (Ctrl must NOT be held)
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    if gameProcessed then return end
+
+    -- Check if Shift + Y is pressed and Ctrl is NOT held
+    if input.KeyCode == Enum.KeyCode.Y
+    and UserInputService:IsKeyDown(Enum.KeyCode.LeftShift)
+    and not UserInputService:IsKeyDown(Enum.KeyCode.LeftControl) then
+        screenGui.Enabled = not screenGui.Enabled
+    end
+end)
+
+
+
+
+
+
+loadstring(game:HttpGet('https://raw.githubusercontent.com/EdgeIY/infiniteyield/master/source'))()
+
+
+game.StarterGui:SetCore("SendNotification", {
+   Title = "Shift + Y",
+   Text = "For Keybinds UI.",
+   Icon = "",
+   Duration = 5
+})
+
+
+local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+local Players = game:GetService("Players")
+
+local player = Players.LocalPlayer
+local character = player.Character or player.CharacterAdded:Wait()
+local humanoid = character:FindFirstChildWhichIsA("Humanoid")
+
+local tpwalking = true
+local tpwalkSpeed = 0.21 -- Default speed
+local uiEnabled = false
+local screenGui, frame, textBox, confirmButton
+
+local function startTpWalk()
+    tpwalking = true
+    local chr = player.Character
+    local hum = chr and chr:FindFirstChildWhichIsA("Humanoid")
+
+    while tpwalking and chr and hum and hum.Parent do
+        local delta = RunService.Heartbeat:Wait()
+        if hum.MoveDirection.Magnitude > 0 then
+            chr:TranslateBy(hum.MoveDirection * tpwalkSpeed * delta * 10)
+        end
+    end
+end
+
+local function stopTpWalk()
+    tpwalking = false
+end
+
+local function toggleTpWalk()
+    if tpwalking then
+        stopTpWalk()
+    else
+        startTpWalk()
+    end
+end
+
+local function onCharacterAdded(newCharacter)
+    character = newCharacter
+    humanoid = character:FindFirstChildWhichIsA("Humanoid")
+
+    if tpwalking then
+        task.wait(1) -- Wait a second for everything to load
+        startTpWalk()
+    end
+end
+
+player.CharacterAdded:Connect(onCharacterAdded)
+
+local function createSpeedUI()
+    if screenGui then return end -- Prevent multiple UIs
+
+    screenGui = Instance.new("ScreenGui")
+    screenGui.Parent = player:WaitForChild("PlayerGui")
+
+    frame = Instance.new("Frame")
+    frame.Size = UDim2.new(0, 230, 0, 150) -- Slightly smaller UI
+    frame.Position = UDim2.new(0.5, -115, 0.5, -75)
+    frame.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+    frame.BorderSizePixel = 2
+    frame.BorderColor3 = Color3.fromRGB(100, 180, 255) -- Light blue border
+    frame.Parent = screenGui
+
+    local titleLabel = Instance.new("TextLabel")
+    titleLabel.Size = UDim2.new(1, 0, 0.2, 0)
+    titleLabel.Position = UDim2.new(0, 0, 0, 5)
+    titleLabel.Text = "Change Speed"
+    titleLabel.TextColor3 = Color3.fromRGB(0, 145, 250) -- Blue text
+    titleLabel.BackgroundTransparency = 1
+    titleLabel.Font = Enum.Font.SourceSansBold
+    titleLabel.TextSize = 20
+    titleLabel.Parent = frame
+
+    textBox = Instance.new("TextBox")
+    textBox.Size = UDim2.new(0.8, 0, 0.3, 0)
+    textBox.Position = UDim2.new(0.1, 0, 0.3, 0) -- Adjusted spacing
+    textBox.PlaceholderText = "Enter speed"
+    textBox.Text = tostring(tpwalkSpeed)
+    textBox.BackgroundColor3 = Color3.fromRGB(80, 80, 80)
+    textBox.ClearTextOnFocus = true -- Clears input when clicked
+    textBox.Parent = frame
+
+    -- Restrict input to numbers and one decimal point
+    textBox:GetPropertyChangedSignal("Text"):Connect(function()
+        local inputText = textBox.Text
+        -- Remove all non-numeric characters except one decimal point
+        inputText = inputText:gsub("[^%d.]", "")
+        -- Ensure only one decimal point exists
+        local dotCount = select(2, inputText:gsub("%.", ""))
+        if dotCount > 1 then
+            inputText = inputText:sub(1, #inputText - 1) -- Remove extra dots
+        end
+        textBox.Text = inputText
+    end)
+
+    textBox.FocusLost:Connect(function()
+        if textBox.Text == "" or textBox.Text == "." then
+            textBox.Text = tostring(tpwalkSpeed) -- Reset to previous value if empty or invalid
+        end
+    end)
+
+    confirmButton = Instance.new("TextButton")
+    confirmButton.Size = UDim2.new(0.8, 0, 0.3, 0)
+    confirmButton.Position = UDim2.new(0.1, 0, 0.65, 0) -- Aligned properly
+    confirmButton.Text = "Confirm"
+    confirmButton.BackgroundColor3 = Color3.fromRGB(100, 100, 255)
+    confirmButton.Parent = frame
+
+    confirmButton.MouseButton1Click:Connect(function()
+        local newSpeed = tonumber(textBox.Text)
+        if newSpeed and newSpeed > 0 then
+            tpwalkSpeed = newSpeed
+        end
+        screenGui:Destroy() -- Hide UI on confirm
+        screenGui = nil
+        uiEnabled = false
+    end)
+end
+
+local function toggleSpeedUI()
+    uiEnabled = not uiEnabled
+    if uiEnabled then
+        createSpeedUI()
+    elseif screenGui then
+        screenGui:Destroy()
+        screenGui = nil
+    end
+end
+
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    if gameProcessed then return end
+
+    if input.KeyCode == Enum.KeyCode.P and UserInputService:IsKeyDown(Enum.KeyCode.LeftControl) and UserInputService:IsKeyDown(Enum.KeyCode.LeftShift) then
+        toggleTpWalk()
+    elseif input.KeyCode == Enum.KeyCode.L and UserInputService:IsKeyDown(Enum.KeyCode.LeftControl) and UserInputService:IsKeyDown(Enum.KeyCode.LeftShift) then
+        toggleSpeedUI()
+    end
+end)
+
+startTpWalk()
+
