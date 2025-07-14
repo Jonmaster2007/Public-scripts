@@ -1,18 +1,4 @@
---[[ keybinds for revamped Grave Diggers Script!
-  hold X for aimlock 
-  shift + [ switches the part from head to torso
-  shift + ] toggles teamcheck ON by default
-  ctrl + [ makes selected player's outlines blue
-  ctrl + ] toggles the outline loop
-  ctrl + P Toggles aimlock to lock onto torso of players with unbreakable helmets ON by default (if enabled will always target torso of lancer players cause their helmets are indestructible.)
-  ctrl + P and if the aim part is torso it forces aimlock to aim on head if they don't have a helmet ON by default (if enabled will always target torso of lancer players cause their helmets are indestructible.)
-  shift + P Toggles the outlines and the targetbox
-  ctrl + shift + \ Deletes the spawn barriers so you can shoot people in spawn (Blatant)
-  ctrl + L Toggles aimlock smoothness
-  ctrl + shift + L opens the tpwalk speed UI
-  Ctrl + Shift + P Toggles tpwalking, ON by default
-  Shift + Y Toggles Keybinds UI
-  Dont forget to change your X keybind ingame to B and your B keybind to N for INGAME settings!]]
+
 local aim_config = _G.JALON_AIMCONFIG or {
     Enabled = true,
     KeyActivation = Enum.KeyCode.X,
