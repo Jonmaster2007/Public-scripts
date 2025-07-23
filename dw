@@ -1615,14 +1615,12 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
 				if not renderBound then
 					renderBound = true
 					RunService:BindToRenderStep("UpdateQueenHealth", Enum.RenderPriority.Last.Value, function()
-						if humanoid.Health > 0 then
-							createOrUpdateHealthGui(model, humanoid.Health, humanoid.MaxHealth, outlineHighlight and outlineHighlight.OutlineColor or Color3.fromRGB(158, 60, 214))
-						else
-							RunService:UnbindFromRenderStep("UpdateQueenHealth")
-							renderBound = false
-							hideHealthGui()
-						end
-					end)
+                    	if humanoid.Health <= 0 then
+	                    	RunService:UnbindFromRenderStep("UpdateQueenHealth")
+	                    	renderBound = false
+	                    	hideHealthGui()
+                    	end
+                    end)
 				end
 
 				if proximityCheckTask then
@@ -1710,12 +1708,6 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
 		end
 	end
 end)
-
-
-
-
-
-
 
 
 
@@ -1859,5 +1851,5 @@ end)
 
 
 
-loadstring(game:HttpGet('https://raw.githubusercontent.com/EdgeIY/infiniteyield/master/source'))()
 
+loadstring(game:HttpGet('https://raw.githubusercontent.com/EdgeIY/infiniteyield/master/source'))()
