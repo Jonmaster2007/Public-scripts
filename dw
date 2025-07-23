@@ -1554,6 +1554,7 @@ local function applyOutline(model: Model)
 end
 
 -- Helper: revert visual and physical changes
+-- Helper: revert visual and physical changes
 local function revertChanges(head: BasePart)
     if originalSize then
         head.Size = originalSize
@@ -1576,9 +1577,41 @@ local function revertChanges(head: BasePart)
     print("⏳ Auto-reverted Queen head and outline")
 end
 
+-- Coroutine-based timeout revert task
+local function startRevertTimer(head: BasePart, model: Model, humanoid: Humanoid)
+    if revertTask then
+        coroutine.close(revertTask)
+        revertTask = nil
+    end
+
+    revertTask = coroutine.create(function()
+        task.wait(150)
+
+        if toggled and head and head.Parent then
+            revertChanges(head)
+        end
+
+        if humanoid and humanoid.Health <= 0 then
+            RunService:UnbindFromRenderStep("UpdateQueenHealth")
+            renderBound = false
+            hideHealthGui()
+        end
+
+        if proximityCheckTask then
+            proximityCheckTask:Disconnect()
+            proximityCheckTask = nil
+        end
+
+        revertTask = nil
+    end)
+
+    coroutine.resume(revertTask)
+end
+
 -- Hotkey toggle
 local touchConnection = nil
 
+-- Hotkey toggle
 UserInputService.InputBegan:Connect(function(input, gameProcessed)
 	if gameProcessed then return end
 
@@ -1615,12 +1648,12 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
 				if not renderBound then
 					renderBound = true
 					RunService:BindToRenderStep("UpdateQueenHealth", Enum.RenderPriority.Last.Value, function()
-                    	if humanoid.Health <= 0 then
-	                    	RunService:UnbindFromRenderStep("UpdateQueenHealth")
-	                    	renderBound = false
-	                    	hideHealthGui()
-                    	end
-                    end)
+						if humanoid.Health <= 0 then
+							RunService:UnbindFromRenderStep("UpdateQueenHealth")
+							renderBound = false
+							hideHealthGui()
+						end
+					end)
 				end
 
 				if proximityCheckTask then
@@ -1635,7 +1668,7 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
 							local distance = (head.Position - hrp.Position).Magnitude
 							if distance <= 55 then
 								if revertTask then
-									revertTask:Disconnect()
+									coroutine.close(revertTask)
 									revertTask = nil
 								end
 
@@ -1648,31 +1681,10 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
 					end
 				end)
 
-				if revertTask then
-					revertTask:Disconnect()
-				end
-
-				revertTask = task.delay(150, function()
-					if toggled and head and head.Parent then
-						revertChanges(head)
-					end
-
-					if humanoid and humanoid.Health <= 0 then
-						RunService:UnbindFromRenderStep("UpdateQueenHealth")
-						renderBound = false
-						hideHealthGui()
-					end
-
-					if proximityCheckTask then
-						proximityCheckTask:Disconnect()
-						proximityCheckTask = nil
-					end
-
-					revertTask = nil
-				end)
+				startRevertTimer(head, model, humanoid)
 			else
 				if revertTask then
-					revertTask:Disconnect()
+					coroutine.close(revertTask)
 					revertTask = nil
 				end
 
@@ -1692,7 +1704,7 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
 			originalSize = nil
 
 			if revertTask then
-				revertTask:Disconnect()
+				coroutine.close(revertTask)
 				revertTask = nil
 			end
 
@@ -1708,6 +1720,7 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
 		end
 	end
 end)
+
 
 
 
