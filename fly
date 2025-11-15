@@ -52,7 +52,10 @@ if LocalPlayer.Character then
 end
 
 -- Function to toggle flight
-local function toggleFlight()
+-- Inside the fly script
+getgenv().toggleFlight = function()
+    -- toggle logic
+end
     flying = not flying
 
     if flying and rootPart and humanoid then
