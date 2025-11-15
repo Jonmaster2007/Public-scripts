@@ -1,0 +1,109 @@
+task.defer(function()
+    -- Services
+    local Players = game:GetService("Players")
+
+    -- Local player
+    local player = Players.LocalPlayer
+    local playerGui = player:WaitForChild("PlayerGui")
+    local equippedGear = playerGui:WaitForChild("EquippedGear")
+
+    -- UI variables
+    local screenGui
+    local textLabel
+    local connection
+    local gearConnection
+
+    -- Function to create durability display
+    local function createDisplay(gasMask)
+        if screenGui then return end -- Don't create multiple times
+
+        screenGui = Instance.new("ScreenGui")
+        screenGui.Name = "DurabilityDisplay"
+        screenGui.Parent = playerGui
+
+        textLabel = Instance.new("TextLabel")
+        textLabel.Size = UDim2.new(0, 100, 0, 30)
+        textLabel.Position = UDim2.new(1, -110, 1, -40)
+        textLabel.BackgroundTransparency = 1
+        textLabel.TextColor3 = Color3.new(1, 1, 1)
+        textLabel.TextScaled = true
+        textLabel.Font = Enum.Font.SourceSansBold
+        textLabel.Text = ""
+        textLabel.Parent = screenGui
+
+        local function updateDurability()
+            local durability = gasMask:GetAttribute("Durability")
+            if durability ~= nil then
+                local percentage = math.clamp(math.floor(durability + 0.5), 0, 100)
+                textLabel.Text = percentage .. "%"
+                if percentage < 25 then
+                    textLabel.TextColor3 = Color3.new(1, 0, 0)
+                else
+                    textLabel.TextColor3 = Color3.new(1, 1, 1)
+                end
+            else
+                textLabel.Text = ""
+            end
+        end
+
+        connection = gasMask:GetAttributeChangedSignal("Durability"):Connect(updateDurability)
+        updateDurability()
+    end
+
+    -- Function to remove durability display
+    local function removeDisplay()
+        if connection then
+            connection:Disconnect()
+            connection = nil
+        end
+        if screenGui then
+            screenGui:Destroy()
+            screenGui = nil
+            textLabel = nil
+        end
+    end
+
+    -- Function to check for gas mask and show/hide display
+    local function checkAndShow()
+        local gasMask = equippedGear:FindFirstChild("Gas Mask")
+        if gasMask then
+            createDisplay(gasMask)
+        else
+            removeDisplay()
+        end
+    end
+
+    -- Default toggle state
+    getgenv().gasMaskEnabled = true
+
+    -- Expose functions globally so the UI can toggle
+    getgenv().toggleGasMask = function(state)
+        getgenv().gasMaskEnabled = state
+        if state then
+            checkAndShow()
+            if not gearConnection then
+                gearConnection = equippedGear.ChildAdded:Connect(function(child)
+                    if child.Name == "Gas Mask" then
+                        checkAndShow()
+                    end
+                end)
+                equippedGear.ChildRemoved:Connect(function(child)
+                    if child.Name == "Gas Mask" then
+                        checkAndShow()
+                    end
+                end)
+            end
+        else
+            if gearConnection then
+                gearConnection:Disconnect()
+                gearConnection = nil
+            end
+            removeDisplay()
+        end
+    end
+
+    -- Start immediately if enabled
+    if getgenv().gasMaskEnabled then
+        getgenv().toggleGasMask(true)
+    end
+end)
