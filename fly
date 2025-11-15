@@ -1,138 +1,108 @@
+-- Services
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local Workspace = game:GetService("Workspace")
 
--- Игрок и части
-local player = Players.LocalPlayer
-local character = player.Character or player.CharacterAdded:Wait()
+-- Local player and character
+local LocalPlayer = Players.LocalPlayer or Players.PlayerAdded:Wait()
+local character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
 local humanoid = character:WaitForChild("Humanoid")
 local rootPart = character:WaitForChild("HumanoidRootPart")
 
--- Управляющие силы
+-- Flight control objects
 local velocity = Instance.new("BodyVelocity")
 velocity.MaxForce = Vector3.new(1e5, 1e5, 1e5)
 velocity.P = 1e5
+velocity.Velocity = Vector3.zero
 
 local gyro = Instance.new("BodyGyro")
 gyro.MaxTorque = Vector3.new(1e5, 1e5, 1e5)
 gyro.P = 1e5
+gyro.CFrame = rootPart.CFrame
 
--- Направление и параметры
+-- Flight parameters
 local flying = false
 local baseSpeed = 20
-local currentSpeed = baseSpeed
+local maxSpeed = 100
 local acceleration = 10
 local deceleration = 5
-local maxSpeed = 100
-
-local direction = {
-    forward = false,
-    backward = false,
-    left = false,
-    right = false,
-    up = false,
-    down = false
-}
-
--- Обработка клавиш
-UIS.InputBegan:Connect(function(input, gpe)
-    if gpe then return end
-    if input.KeyCode == Enum.KeyCode.W then direction.forward = true end
-    if input.KeyCode == Enum.KeyCode.S then direction.backward = true end
-    if input.KeyCode == Enum.KeyCode.A then direction.left = true end
-    if input.KeyCode == Enum.KeyCode.D then direction.right = true end
-    if input.KeyCode == Enum.KeyCode.Space then direction.up = true end
-    if input.KeyCode == Enum.KeyCode.LeftControl then direction.down = true end
-end)
-
-UIS.InputEnded:Connect(function(input)
-    if input.KeyCode == Enum.KeyCode.W then direction.forward = false end
-    if input.KeyCode == Enum.KeyCode.S then direction.backward = false end
-    if input.KeyCode == Enum.KeyCode.A then direction.left = false end
-    if input.KeyCode == Enum.KeyCode.D then direction.right = false end
-    if input.KeyCode == Enum.KeyCode.Space then direction.up = false end
-    if input.KeyCode == Enum.KeyCode.LeftControl then direction.down = false end
-end)
-
--- 🟢 Rayfield Keybind
-local LocalPlayer = Players.LocalPlayer
-
-local flying = false
-local baseSpeed, maxSpeed, acceleration, deceleration = 5, 50, 2, 1
 local currentSpeed = baseSpeed
 
-local direction = {
-    forward = false, backward = false,
-    left = false, right = false,
-    up = false, down = false
-}
+-- Direction tracking
+local direction = {forward=false, backward=false, left=false, right=false, up=false, down=false}
 
-local rootPart, humanoid, velocity, gyro
-
+-- Handle character respawn
 local function setupCharacter(char)
     humanoid = char:WaitForChild("Humanoid")
     rootPart = char:WaitForChild("HumanoidRootPart")
 
     velocity = Instance.new("BodyVelocity")
-    velocity.MaxForce = Vector3.new(1, 1, 1) * 1e5
+    velocity.MaxForce = Vector3.new(1e5, 1e5, 1e5)
     velocity.Velocity = Vector3.zero
 
     gyro = Instance.new("BodyGyro")
-    gyro.MaxTorque = Vector3.new(1, 1, 1) * 1e5
-    gyro.P = 1e4
+    gyro.MaxTorque = Vector3.new(1e5, 1e5, 1e5)
+    gyro.P = 1e5
 end
 
--- Повторная инициализация после респавна
 LocalPlayer.CharacterAdded:Connect(setupCharacter)
 if LocalPlayer.Character then
     setupCharacter(LocalPlayer.Character)
 end
 
--- Переключение полёта через кейбинд
-local Keybind = KTab:CreateKeybind({
+-- Function to toggle flight
+local function toggleFlight()
+    flying = not flying
+
+    if flying and rootPart and humanoid then
+        humanoid.PlatformStand = true
+        currentSpeed = baseSpeed
+
+        velocity.Parent = rootPart
+        gyro.Parent = rootPart
+
+        RunService:BindToRenderStep("FlyControl", Enum.RenderPriority.Character.Value, function()
+            local cam = Workspace.CurrentCamera
+            local move = Vector3.zero
+
+            if direction.forward then move += cam.CFrame.LookVector end
+            if direction.backward then move -= cam.CFrame.LookVector end
+            if direction.left then move -= cam.CFrame.RightVector end
+            if direction.right then move += cam.CFrame.RightVector end
+            if direction.up then move += cam.CFrame.UpVector end
+            if direction.down then move -= cam.CFrame.UpVector end
+
+            if move.Magnitude > 0 then
+                currentSpeed = math.min(currentSpeed + acceleration, maxSpeed)
+                velocity.Velocity = move.Unit * currentSpeed
+            else
+                velocity.Velocity = Vector3.zero
+                currentSpeed = math.max(currentSpeed - deceleration, baseSpeed)
+            end
+
+            gyro.CFrame = cam.CFrame
+        end)
+    else
+        if humanoid then humanoid.PlatformStand = false end
+        if velocity then velocity.Parent = nil end
+        if gyro then gyro.Parent = nil end
+        RunService:UnbindFromRenderStep("FlyControl")
+    end
+end
+
+-- Rayfield keybind to toggle flight
+local FlyKeybind = KTab:CreateKeybind({
     Name = "Fly Keybind",
-    CurrentKeybind = "Insert",
+    CurrentKeybind = "Insert", -- Default key
     HoldToInteract = false,
     Flag = "FlyKeybind",
     Callback = function()
-        flying = not flying
-
-        if flying and rootPart and humanoid then
-            humanoid.PlatformStand = true
-            currentSpeed = baseSpeed
-
-            velocity.Parent = rootPart
-            gyro.Parent = rootPart
-
-            RunService:BindToRenderStep("FlyControl", Enum.RenderPriority.Character.Value, function()
-                local cam = workspace.CurrentCamera
-                local move = Vector3.zero
-
-                if direction.forward then move += cam.CFrame.LookVector end
-                if direction.backward then move -= cam.CFrame.LookVector end
-                if direction.left then move -= cam.CFrame.RightVector end
-                if direction.right then move += cam.CFrame.RightVector end
-                if direction.up then move += cam.CFrame.UpVector end
-                if direction.down then move -= cam.CFrame.UpVector end
-
-                if move.Magnitude > 0 then
-                    currentSpeed = direction.forward and math.min(currentSpeed + acceleration, maxSpeed)
-                        or math.max(currentSpeed - deceleration, baseSpeed)
-                    velocity.Velocity = move.Unit * currentSpeed
-                else
-                    velocity.Velocity = Vector3.zero
-                    currentSpeed = math.max(currentSpeed - deceleration, baseSpeed)
-                end
-
-                gyro.CFrame = cam.CFrame
-            end)
-        else
-            if humanoid then humanoid.PlatformStand = false end
-            if velocity then velocity.Parent = nil end
-            if gyro then gyro.Parent = nil end
-            RunService:UnbindFromRenderStep("FlyControl")
-        end
+        toggleFlight()
     end
 })
 
--- Управление направлениями
+-- Keyboard input tracking
 UserInputService.InputBegan:Connect(function(input, gameProcessed)
     if gameProcessed then return end
     if input.UserInputType == Enum.UserInputType.Keyboard then
