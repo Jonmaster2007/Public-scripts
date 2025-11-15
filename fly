@@ -1,10 +1,9 @@
 -- Services
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
-local UserInputService = game:GetService("UserInputService")
 local Workspace = game:GetService("Workspace")
 
--- Local player and character
+-- Local player
 local LocalPlayer = Players.LocalPlayer or Players.PlayerAdded:Wait()
 local character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
 local humanoid = character:WaitForChild("Humanoid")
@@ -13,8 +12,8 @@ local rootPart = character:WaitForChild("HumanoidRootPart")
 -- Flight control objects
 local velocity = Instance.new("BodyVelocity")
 velocity.MaxForce = Vector3.new(1e5, 1e5, 1e5)
-velocity.P = 1e5
 velocity.Velocity = Vector3.zero
+velocity.P = 1e5
 
 local gyro = Instance.new("BodyGyro")
 gyro.MaxTorque = Vector3.new(1e5, 1e5, 1e5)
@@ -36,14 +35,6 @@ local direction = {forward=false, backward=false, left=false, right=false, up=fa
 local function setupCharacter(char)
     humanoid = char:WaitForChild("Humanoid")
     rootPart = char:WaitForChild("HumanoidRootPart")
-
-    velocity = Instance.new("BodyVelocity")
-    velocity.MaxForce = Vector3.new(1e5, 1e5, 1e5)
-    velocity.Velocity = Vector3.zero
-
-    gyro = Instance.new("BodyGyro")
-    gyro.MaxTorque = Vector3.new(1e5, 1e5, 1e5)
-    gyro.P = 1e5
 end
 
 LocalPlayer.CharacterAdded:Connect(setupCharacter)
@@ -51,11 +42,8 @@ if LocalPlayer.Character then
     setupCharacter(LocalPlayer.Character)
 end
 
--- Function to toggle flight
--- Inside the fly script
+-- Define toggleFlight globally
 getgenv().toggleFlight = function()
-    -- toggle logic
-end
     flying = not flying
 
     if flying and rootPart and humanoid then
@@ -93,4 +81,3 @@ end
         RunService:UnbindFromRenderStep("FlyControl")
     end
 end
-
