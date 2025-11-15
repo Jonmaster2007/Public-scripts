@@ -91,39 +91,3 @@ local function toggleFlight()
     end
 end
 
--- Rayfield keybind to toggle flight
-local FlyKeybind = KTab:CreateKeybind({
-    Name = "Fly Keybind",
-    CurrentKeybind = "Insert", -- Default key
-    HoldToInteract = false,
-    Flag = "FlyKeybind",
-    Callback = function()
-        toggleFlight()
-    end
-})
-
--- Keyboard input tracking
-UserInputService.InputBegan:Connect(function(input, gameProcessed)
-    if gameProcessed then return end
-    if input.UserInputType == Enum.UserInputType.Keyboard then
-        local code = input.KeyCode
-        if code == Enum.KeyCode.W then direction.forward = true end
-        if code == Enum.KeyCode.S then direction.backward = true end
-        if code == Enum.KeyCode.A then direction.left = true end
-        if code == Enum.KeyCode.D then direction.right = true end
-        if code == Enum.KeyCode.Space then direction.up = true end
-        if code == Enum.KeyCode.LeftControl then direction.down = true end
-    end
-end)
-
-UserInputService.InputEnded:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.Keyboard then
-        local code = input.KeyCode
-        if code == Enum.KeyCode.W then direction.forward = false end
-        if code == Enum.KeyCode.S then direction.backward = false end
-        if code == Enum.KeyCode.A then direction.left = false end
-        if code == Enum.KeyCode.D then direction.right = false end
-        if code == Enum.KeyCode.Space then direction.up = false end
-        if code == Enum.KeyCode.LeftControl then direction.down = false end
-    end
-end)
