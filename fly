@@ -4,7 +4,12 @@ local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 local Workspace = game:GetService("Workspace")
 
--- Local player and character
+-- Ensure global direction table exists
+if not getgenv().direction then
+    getgenv().direction = {forward=false, backward=false, left=false, right=false, up=false, down=false}
+end
+
+-- Local player
 local LocalPlayer = Players.LocalPlayer or Players.PlayerAdded:Wait()
 local character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
 local humanoid = character:WaitForChild("Humanoid")
@@ -29,10 +34,7 @@ local acceleration = 10
 local deceleration = 5
 local currentSpeed = baseSpeed
 
--- Direction tracking (global for UI)
-getgenv().direction = {forward=false, backward=false, left=false, right=false, up=false, down=false}
-
--- Function to setup character (after respawn)
+-- Handle character respawn
 local function setupCharacter(char)
     humanoid = char:WaitForChild("Humanoid")
     rootPart = char:WaitForChild("HumanoidRootPart")
@@ -51,7 +53,7 @@ if LocalPlayer.Character then
     setupCharacter(LocalPlayer.Character)
 end
 
--- Function to toggle flight
+-- Flight toggle function
 getgenv().toggleFlight = function()
     flying = not flying
 
@@ -90,3 +92,44 @@ getgenv().toggleFlight = function()
         RunService:UnbindFromRenderStep("FlyControl")
     end
 end
+
+-- Input listeners
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    if gameProcessed then return end
+    if input.UserInputType == Enum.UserInputType.Keyboard then
+        local code = input.KeyCode
+        if code == Enum.KeyCode.W then getgenv().direction.forward = true end
+        if code == Enum.KeyCode.S then getgenv().direction.backward = true end
+        if code == Enum.KeyCode.A then getgenv().direction.left = true end
+        if code == Enum.KeyCode.D then getgenv().direction.right = true end
+        if code == Enum.KeyCode.Space then getgenv().direction.up = true end
+        if code == Enum.KeyCode.LeftControl then getgenv().direction.down = true end
+    end
+end)
+
+UserInputService.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.Keyboard then
+        local code = input.KeyCode
+        if code == Enum.KeyCode.W then getgenv().direction.forward = false end
+        if code == Enum.KeyCode.S then getgenv().direction.backward = false end
+        if code == Enum.KeyCode.A then getgenv().direction.left = false end
+        if code == Enum.KeyCode.D then getgenv().direction.right = false end
+        if code == Enum.KeyCode.Space then getgenv().direction.up = false end
+        if code == Enum.KeyCode.LeftControl then getgenv().direction.down = false end
+    end
+end)
+
+-- Rayfield keybind (place after UI is loaded)
+task.defer(function()
+    if KTab and KTab.CreateKeybind then
+        local FlyKeybind = KTab:CreateKeybind({
+            Name = "Fly Keybind",
+            CurrentKeybind = "Insert",
+            HoldToInteract = false,
+            Flag = "FlyKeybind",
+            Callback = function()
+                getgenv().toggleFlight()
+            end
+        })
+    end
+end)
