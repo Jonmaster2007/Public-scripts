@@ -1,12 +1,25 @@
--- Flight logic only
+-- Services
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
 local Workspace = game:GetService("Workspace")
 
+-- Local player and character
 local LocalPlayer = Players.LocalPlayer or Players.PlayerAdded:Wait()
+local character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+local humanoid = character:WaitForChild("Humanoid")
+local rootPart = character:WaitForChild("HumanoidRootPart")
 
-local humanoid, rootPart
-local velocity, gyro
+-- Flight control objects
+local velocity = Instance.new("BodyVelocity")
+velocity.MaxForce = Vector3.new(1e5, 1e5, 1e5)
+velocity.P = 1e5
+velocity.Velocity = Vector3.zero
+
+local gyro = Instance.new("BodyGyro")
+gyro.MaxTorque = Vector3.new(1e5, 1e5, 1e5)
+gyro.P = 1e5
+gyro.CFrame = rootPart.CFrame
 
 -- Flight parameters
 local flying = false
@@ -15,9 +28,11 @@ local maxSpeed = 100
 local acceleration = 10
 local deceleration = 5
 local currentSpeed = baseSpeed
-local direction = {forward=false, backward=false, left=false, right=false, up=false, down=false}
 
--- Character setup
+-- Direction tracking (global for UI)
+getgenv().direction = {forward=false, backward=false, left=false, right=false, up=false, down=false}
+
+-- Function to setup character (after respawn)
 local function setupCharacter(char)
     humanoid = char:WaitForChild("Humanoid")
     rootPart = char:WaitForChild("HumanoidRootPart")
@@ -36,26 +51,27 @@ if LocalPlayer.Character then
     setupCharacter(LocalPlayer.Character)
 end
 
--- Global toggle function
+-- Function to toggle flight
 getgenv().toggleFlight = function()
-    if not humanoid or not rootPart then return end
     flying = not flying
 
-    if flying then
+    if flying and rootPart and humanoid then
         humanoid.PlatformStand = true
         currentSpeed = baseSpeed
+
         velocity.Parent = rootPart
         gyro.Parent = rootPart
 
         RunService:BindToRenderStep("FlyControl", Enum.RenderPriority.Character.Value, function()
             local cam = Workspace.CurrentCamera
             local move = Vector3.zero
-            if direction.forward then move += cam.CFrame.LookVector end
-            if direction.backward then move -= cam.CFrame.LookVector end
-            if direction.left then move -= cam.CFrame.RightVector end
-            if direction.right then move += cam.CFrame.RightVector end
-            if direction.up then move += cam.CFrame.UpVector end
-            if direction.down then move -= cam.CFrame.UpVector end
+
+            if getgenv().direction.forward then move += cam.CFrame.LookVector end
+            if getgenv().direction.backward then move -= cam.CFrame.LookVector end
+            if getgenv().direction.left then move -= cam.CFrame.RightVector end
+            if getgenv().direction.right then move += cam.CFrame.RightVector end
+            if getgenv().direction.up then move += cam.CFrame.UpVector end
+            if getgenv().direction.down then move -= cam.CFrame.UpVector end
 
             if move.Magnitude > 0 then
                 currentSpeed = math.min(currentSpeed + acceleration, maxSpeed)
@@ -68,9 +84,9 @@ getgenv().toggleFlight = function()
             gyro.CFrame = cam.CFrame
         end)
     else
-        humanoid.PlatformStand = false
-        velocity.Parent = nil
-        gyro.Parent = nil
+        if humanoid then humanoid.PlatformStand = false end
+        if velocity then velocity.Parent = nil end
+        if gyro then gyro.Parent = nil end
         RunService:UnbindFromRenderStep("FlyControl")
     end
 end
