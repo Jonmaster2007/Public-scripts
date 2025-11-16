@@ -1,9 +1,7 @@
 -- ======= BAG ESP LOADSTRING (READY-TO-PASTE) =======
 local Players = game:GetService("Players")
-local RunService = game:GetService("RunService")
 local Workspace = game:GetService("Workspace")
-local UserInputService = game:GetService("UserInputService")
-
+local RunService = game:GetService("RunService")
 local player = Players.LocalPlayer or Players.PlayerAdded:Wait()
 
 -- GLOBAL SETTINGS
@@ -20,12 +18,15 @@ getgenv().defaultImportantItems = {
     ["Purple Keycard"] = Color3.fromRGB(128, 0, 128),
     ["Blue Keycard"] = Color3.fromRGB(128, 0, 128),
     ["Photon Accelerator"] = Color3.fromRGB(102, 0, 51),
+    ["Photon Blades"] = Color3.fromRGB(102, 0, 51),
     ["RSH-12"] = Color3.fromRGB(102, 0, 51),
     ["Red Flare Gun"] = Color3.fromRGB(102, 0, 51),
     ["Green Flare Gun"] = Color3.fromRGB(102, 0, 51),
     ["RPG-18"] = Color3.fromRGB(102, 0, 51),
     ["KS-23"] = Color3.fromRGB(102, 0, 51),
     ["RPG-7"] = Color3.fromRGB(102, 0, 51),
+    ["P90"] = Color3.fromRGB(102, 0, 51),
+    ["Alternator"] = Color3.fromRGB(102, 0, 51),
     ["Operator Vest"] = Color3.fromRGB(102, 0, 51),
     ["Operator Leggings"] = Color3.fromRGB(102, 0, 51),
     ["Operator Helmet"] = Color3.fromRGB(102, 0, 51),
@@ -48,10 +49,6 @@ getgenv().cleanupBagESP = function()
             v:Destroy()
         end
     end
-    for _, conn in ipairs(getgenv().bagESPConnections) do
-        conn:Disconnect()
-    end
-    table.clear(getgenv().bagESPConnections)
 end
 
 -- GET ITEM INFO
@@ -104,28 +101,6 @@ getgenv().createBillboardGui = function(labels, colors, adornee, isImportant)
     end
 
     gui.Parent = adornee
-
-    local conn
-    conn = RunService.Heartbeat:Connect(function()
-        if not getgenv().bagEspEnabled then
-            gui.Enabled = false
-            conn:Disconnect()
-            return
-        end
-        local character = player.Character or player.CharacterAdded:Wait()
-        local hrp = character:FindFirstChild("HumanoidRootPart")
-        if not hrp then return end
-        if not adornee:IsDescendantOf(game) then return end
-
-        local now = tick()
-        if gui._lastUpdate and now - gui._lastUpdate < 0.2 then return end
-        gui._lastUpdate = now
-
-        local dist = (adornee.Position - hrp.Position).Magnitude
-        gui.Enabled = isImportant or dist <= getgenv().bagMaxDistance
-    end)
-
-    table.insert(getgenv().bagESPConnections, conn)
 end
 
 -- UPDATE ESP
@@ -133,27 +108,32 @@ getgenv().updateBagESP = function()
     if not getgenv().bagEspEnabled then return end
     local lootFolder = Workspace:FindFirstChild("Debris") and Workspace.Debris:FindFirstChild("Loot")
     if not lootFolder then return end
+
     for _, mesh in ipairs(lootFolder:GetChildren()) do
         if mesh:IsA("Model") or mesh:IsA("BasePart") then
             local adornee = mesh:IsA("Model") and (mesh.PrimaryPart or mesh:FindFirstChildWhichIsA("BasePart")) or mesh
             if adornee then
                 local labels, colors, isImportant = getgenv().getItemInfo(mesh)
-                getgenv().createBillboardGui(labels, colors, adornee, isImportant)
+                if #labels > 0 then
+                    getgenv().createBillboardGui(labels, colors, adornee, isImportant)
+                else
+                    -- Remove stale ESP if no items left
+                    local oldESP = adornee:FindFirstChild("ESP")
+                    if oldESP then oldESP:Destroy() end
+                end
             end
         end
     end
 end
 
--- START ESP
+-- START ESP LOOP (updates every second)
 getgenv().startBagESP = function()
-    getgenv().updateBagESP()
-    local lootFolder = Workspace:FindFirstChild("Debris") and Workspace.Debris:FindFirstChild("Loot")
-    if lootFolder then
-        table.insert(getgenv().bagESPConnections, lootFolder.ChildAdded:Connect(function()
-            task.wait(0.2)
+    task.spawn(function()
+        while getgenv().bagEspEnabled do
             getgenv().updateBagESP()
-        end))
-    end
+            task.wait(1)
+        end
+    end)
 end
 
 -- TOGGLE ESP
