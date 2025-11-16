@@ -1,27 +1,52 @@
--- ======================================================
--- GLOBAL TWEEN FUNCTION (accessible anywhere)
--- ======================================================
-getgenv().TweenToPosition = function(targetVector3)
-    local Players = game:GetService("Players")
-    local TweenService = game:GetService("TweenService")
+-- =====================================================
+--  UNIVERSAL WAYPOINT TWEEN FUNCTION (Safe Tween)
+-- =====================================================
 
-    local player = Players.LocalPlayer
+local Players = game:GetService("Players")
+local TweenService = game:GetService("TweenService")
+
+local player = Players.LocalPlayer
+
+local function GetRoot(char)
+    return char and char:FindFirstChild("HumanoidRootPart")
+end
+
+-- Time scaling: 1 second for every 150 studs
+local TIME_PER_STUD = 1/150
+
+-- ======= TWEEN FUNCTION WITH RAGDOLL/DAMAGE PROTECTION =======
+function TweenToPosition(positionVector3)
     local char = player.Character
     if not char then return end
 
-    local root = char:FindFirstChild("HumanoidRootPart")
+    local root = GetRoot(char)
     if not root then return end
 
-    local distance = (targetVector3 - root.Position).Magnitude
+    -- Save original states
+    local originalRagdollState = getgenv().blockRagdoll
+    local originalAntiDmgState = getgenv().antiDamageEnabled
 
-    -- 1 second per # studs (change if needed)
-    local duration = distance / 150
+    -- Force protection ON during tween
+    getgenv().blockRagdoll = true
+    getgenv().antiDamageEnabled = true
+
+    -- Duration based on distance
+    local distance = (positionVector3 - root.Position).Magnitude
+    local duration = distance * TIME_PER_STUD
 
     local tween = TweenService:Create(
         root,
         TweenInfo.new(duration, Enum.EasingStyle.Linear),
-        { CFrame = CFrame.new(targetVector3) }
+        { CFrame = CFrame.new(positionVector3) }
     )
 
     tween:Play()
+
+    -- Restore values AFTER tween ends
+    tween.Completed:Connect(function()
+        task.delay(1, function()
+            getgenv().blockRagdoll = originalRagdollState
+            getgenv().antiDamageEnabled = originalAntiDmgState
+        end)
+    end)
 end
