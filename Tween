@@ -9,27 +9,38 @@ getgenv().TweenToPosition = function(positionVector3)
     if not player then return end
 
     local char = player.Character
-    if not char then return end
+    if not char then
+        warn("TweenToPosition: character not loaded yet")
+        return
+    end
 
     local root = char:FindFirstChild("HumanoidRootPart")
-    if not root then return end
+    if not root then
+        warn("TweenToPosition: HumanoidRootPart not found")
+        return
+    end
 
-    -- Time scaling: 1 second per 150 studs
-    local TIME_PER_STUD = 1/150
+    if typeof(positionVector3) ~= "Vector3" then
+        warn("TweenToPosition: invalid Vector3")
+        return
+    end
 
-    -- Calculate distance and duration
+    -- Optional: keep Y position stable
+    positionVector3 = Vector3.new(positionVector3.X, root.Position.Y, positionVector3.Z)
+
+    -- Distance and duration
     local distance = (positionVector3 - root.Position).Magnitude
-    local duration = distance * TIME_PER_STUD
+    local TIME_PER_STUD = 1 / 150
+    local duration = math.clamp(distance * TIME_PER_STUD, 0.1, 10)
 
-    -- Save original safety states
+    -- Save old protection states
     local originalRagdollState = getgenv().blockRagdoll or false
     local originalAntiDmgState = getgenv().antiDamageEnabled or false
 
-    -- Enable protections during tween
+    -- Enable protections only during tween
     getgenv().blockRagdoll = true
     getgenv().antiDamageEnabled = true
 
-    -- Create and play tween
     local tween = TweenService:Create(
         root,
         TweenInfo.new(duration, Enum.EasingStyle.Linear),
@@ -37,11 +48,9 @@ getgenv().TweenToPosition = function(positionVector3)
     )
     tween:Play()
 
-    -- Restore protections after tween completes
     tween.Completed:Connect(function()
-        task.delay(1, function()
-            getgenv().blockRagdoll = originalRagdollState
-            getgenv().antiDamageEnabled = originalAntiDmgState
-        end)
+        -- Restore protections
+        getgenv().blockRagdoll = originalRagdollState
+        getgenv().antiDamageEnabled = originalAntiDmgState
     end)
 end
