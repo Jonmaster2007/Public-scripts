@@ -1,0 +1,27 @@
+-- ======================================================
+-- GLOBAL TWEEN FUNCTION (accessible anywhere)
+-- ======================================================
+getgenv().TweenToPosition = function(targetVector3)
+    local Players = game:GetService("Players")
+    local TweenService = game:GetService("TweenService")
+
+    local player = Players.LocalPlayer
+    local char = player.Character
+    if not char then return end
+
+    local root = char:FindFirstChild("HumanoidRootPart")
+    if not root then return end
+
+    local distance = (targetVector3 - root.Position).Magnitude
+
+    -- 1 second per 75 studs (change if needed)
+    local duration = distance / 75
+
+    local tween = TweenService:Create(
+        root,
+        TweenInfo.new(duration, Enum.EasingStyle.Linear),
+        { CFrame = CFrame.new(targetVector3) }
+    )
+
+    tween:Play()
+end
