@@ -1,64 +1,8 @@
 local Workspace = game:GetService("Workspace")
+local Players = game:GetService("Players")
 
--- Check if a model is a valid NPC
-local function validNPC(model)
-    if not model or not model:IsA("Model") then return false end
-    local hum = model:FindFirstChildOfClass("Humanoid")
-    return hum and hum.Health > 0
-end
-
--- Safe insert to avoid duplicates
-local function safeInsert(tbl, item, seen)
-    if seen[item] then return end
-    seen[item] = true
-    table.insert(tbl, item)
-end
-
--- Get all NPCs in workspace
-local function getAllNPCs()
-    local found = {}
-    local seen = {}
-
-    local function addFolder(folder)
-        if not folder then return end
-        for _, descendant in ipairs(folder:GetDescendants()) do
-            if descendant:IsA("Model") and validNPC(descendant) then
-                safeInsert(found, descendant, seen)
-            end
-        end
-    end
-
-    -- Scan known NPC folders
-    local foldersToScan = {"NPCs", "TutorialTask", "TaskAdded", "TutorialAdded"}
-    for _, folderName in ipairs(foldersToScan) do
-        addFolder(Workspace:FindFirstChild(folderName))
-    end
-
-    -- Include top-level models that are not inside scanned folders
-    local function isInScannedFolder(obj)
-        for _, folderName in ipairs(foldersToScan) do
-            local folder = Workspace:FindFirstChild(folderName)
-            if folder and obj:IsDescendantOf(folder) then
-                return true
-            end
-        end
-        return false
-    end
-
-    for _, obj in ipairs(Workspace:GetChildren()) do
-        if obj:IsA("Model") and not isInScannedFolder(obj) and validNPC(obj) then
-            safeInsert(found, obj, seen)
-        end
-    end
-
-    return found
-end
-
+-- Helper: find nearest NPC by name
 getgenv().findNearestNPCByName = function(name)
-    local Players = game:GetService("Players")
-    local Workspace = game:GetService("Workspace")
-    
-    -- Utility functions
     local function validNPC(model)
         local hum = model:FindFirstChildOfClass("Humanoid")
         return hum and hum.Health > 0
@@ -70,7 +14,6 @@ getgenv().findNearestNPCByName = function(name)
         table.insert(tbl, item)
     end
 
-    -- Find all NPCs
     local function getAllNPCs()
         local found = {}
         local seen = {}
@@ -92,7 +35,6 @@ getgenv().findNearestNPCByName = function(name)
         return found
     end
 
-    -- Find nearest NPC by name
     local nearest
     local playerChar = Players.LocalPlayer.Character
     local hrp = playerChar and playerChar:FindFirstChild("HumanoidRootPart")
@@ -114,3 +56,35 @@ getgenv().findNearestNPCByName = function(name)
     return nearest
 end
 
+-- Buttons inside the same loadstring
+local BrokerBtn = TTab:CreateButton({
+    Name = "Goto Nearest Broker",
+    Callback = function()
+        local npcRoot = getgenv().findNearestNPCByName("Broker")
+        if npcRoot then
+            local hrp = Players.LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+            if hrp then
+                local lv = npcRoot.CFrame.LookVector
+                lv = Vector3.new(lv.X, 0, lv.Z).Unit
+                local targetPos = npcRoot.Position + lv * 5
+                getgenv().TweenToPosition(targetPos)
+            end
+        end
+    end,
+})
+
+local MerchantBtn = TTab:CreateButton({
+    Name = "Goto Nearest Merchant",
+    Callback = function()
+        local npcRoot = getgenv().findNearestNPCByName("Merchant")
+        if npcRoot then
+            local hrp = Players.LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+            if hrp then
+                local lv = npcRoot.CFrame.LookVector
+                lv = Vector3.new(lv.X, 0, lv.Z).Unit
+                local targetPos = npcRoot.Position + lv * 5
+                getgenv().TweenToPosition(targetPos)
+            end
+        end
+    end,
+})
