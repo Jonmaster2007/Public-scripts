@@ -1,5 +1,6 @@
 -- =====================================================
 --  UNIVERSAL WAYPOINT TWEEN FUNCTION (Safe Tween)
+--  ✔ FULL 3D MOVEMENT (no more forced horizontal)
 -- =====================================================
 
 getgenv().TweenToPosition = function(positionVector3)
@@ -25,8 +26,8 @@ getgenv().TweenToPosition = function(positionVector3)
         return
     end
 
-    -- Optional: keep Y position stable
-    positionVector3 = Vector3.new(positionVector3.X, root.Position.Y, positionVector3.Z)
+    -- REMOVE THIS (the line that breaks vertical movement)
+    -- positionVector3 = Vector3.new(positionVector3.X, root.Position.Y, positionVector3.Z)
 
     -- Distance and duration
     local distance = (positionVector3 - root.Position).Magnitude
