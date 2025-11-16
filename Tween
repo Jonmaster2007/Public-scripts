@@ -26,22 +26,20 @@ getgenv().TweenToPosition = function(positionVector3)
         return
     end
 
-    -- REMOVE THIS (the line that breaks vertical movement)
-    -- positionVector3 = Vector3.new(positionVector3.X, root.Position.Y, positionVector3.Z)
-
-    -- Distance and duration
+    -- Distance → duration
     local distance = (positionVector3 - root.Position).Magnitude
     local TIME_PER_STUD = 1 / 150
     local duration = math.clamp(distance * TIME_PER_STUD, 0.1, 10)
 
-    -- Save old protection states
+    -- Save states
     local originalRagdollState = getgenv().blockRagdoll or false
     local originalAntiDmgState = getgenv().antiDamageEnabled or false
 
-    -- Enable protections only during tween
+    -- Enable protections
     getgenv().blockRagdoll = true
     getgenv().antiDamageEnabled = true
 
+    -- Tween, now with REAL full 3D movement
     local tween = TweenService:Create(
         root,
         TweenInfo.new(duration, Enum.EasingStyle.Linear),
@@ -50,8 +48,8 @@ getgenv().TweenToPosition = function(positionVector3)
     tween:Play()
 
     tween.Completed:Connect(function()
-        -- Restore protections
         getgenv().blockRagdoll = originalRagdollState
         getgenv().antiDamageEnabled = originalAntiDmgState
     end)
 end
+
