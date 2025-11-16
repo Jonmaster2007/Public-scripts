@@ -14,8 +14,8 @@ getgenv().TweenToPosition = function(targetVector3)
 
     local distance = (targetVector3 - root.Position).Magnitude
 
-    -- 1 second per 75 studs (change if needed)
-    local duration = distance / 75
+    -- 1 second per # studs (change if needed)
+    local duration = distance / 150
 
     local tween = TweenService:Create(
         root,
