@@ -1,55 +1,47 @@
-local Players = game:GetService("Players")
-local TweenService = game:GetService("TweenService")
+-- =====================================================
+--  UNIVERSAL WAYPOINT TWEEN FUNCTION (Safe Tween)
+-- =====================================================
 
-local player = Players.LocalPlayer
+getgenv().TweenToPosition = function(positionVector3)
+    local Players = game:GetService("Players")
+    local TweenService = game:GetService("TweenService")
+    local player = Players.LocalPlayer
+    if not player then return end
 
-local function GetRoot(char)
-    return char and char:FindFirstChild("HumanoidRootPart")
-end
-
--- Time scaling: 1 second per 150 studs
-local TIME_PER_STUD = 1/150
-
-function TweenToPosition(positionVector3)
     local char = player.Character
     if not char then return end
 
-    local root = GetRoot(char)
+    local root = char:FindFirstChild("HumanoidRootPart")
     if not root then return end
 
-    -- Save original states
-    local wasRagdoll = getgenv().blockRagdoll
-    local wasDamage = getgenv().antiDamageEnabled
+    -- Time scaling: 1 second per 150 studs
+    local TIME_PER_STUD = 1/150
 
-    -- Enable protections only if they were off
-    local changedRagdoll = false
-    local changedDamage = false
-
-    if not wasRagdoll then
-        getgenv().blockRagdoll = true
-        changedRagdoll = true
-    end
-    if not wasDamage then
-        getgenv().antiDamageEnabled = true
-        changedDamage = true
-    end
-
-    -- Duration based on distance
+    -- Calculate distance and duration
     local distance = (positionVector3 - root.Position).Magnitude
     local duration = distance * TIME_PER_STUD
 
+    -- Save original safety states
+    local originalRagdollState = getgenv().blockRagdoll or false
+    local originalAntiDmgState = getgenv().antiDamageEnabled or false
+
+    -- Enable protections during tween
+    getgenv().blockRagdoll = true
+    getgenv().antiDamageEnabled = true
+
+    -- Create and play tween
     local tween = TweenService:Create(
         root,
         TweenInfo.new(duration, Enum.EasingStyle.Linear),
-        { CFrame = CFrame.new(positionVector3) }
+        {CFrame = CFrame.new(positionVector3)}
     )
     tween:Play()
 
-    -- Restore protections AFTER tween ends + 1 second
+    -- Restore protections after tween completes
     tween.Completed:Connect(function()
         task.delay(1, function()
-            if changedRagdoll then getgenv().blockRagdoll = false end
-            if changedDamage then getgenv().antiDamageEnabled = false end
+            getgenv().blockRagdoll = originalRagdollState
+            getgenv().antiDamageEnabled = originalAntiDmgState
         end)
     end)
 end
