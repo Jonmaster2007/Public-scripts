@@ -1,0 +1,26 @@
+-- ======= Teleport Helpers Loadstring =======
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+
+-- Helper: find nearest NPC by name
+getgenv().findNearestNPC = function(npcName)
+    local nearest
+    local playerChar = LocalPlayer.Character
+    local playerRoot = playerChar and playerChar:FindFirstChild("HumanoidRootPart")
+    if not playerRoot then return nil end
+    local playerPos = playerRoot.Position
+
+    for _, npc in ipairs(getgenv().getAllNPCs()) do
+        if string.lower(npc.Name) == npcName:lower() then
+            local root = npc:FindFirstChild("HumanoidRootPart")
+            if root then
+                local dist = (root.Position - playerPos).Magnitude
+                if not nearest or dist < (nearest.Position - playerPos).Magnitude then
+                    nearest = root
+                end
+            end
+        end
+    end
+
+    return nearest
+end
