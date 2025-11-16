@@ -1,0 +1,87 @@
+local Players = game:GetService("Players")
+local player = Players.LocalPlayer
+
+local airdropBillboard = nil
+local running = false
+
+local MIN_SIZE = 12
+local MAX_SIZE = 30
+local MAX_DISTANCE = 500
+
+local function getAirdrop()
+    local root = workspace:FindFirstChild("Debris")
+    if not root then return nil end
+
+    local ad = root:FindFirstChild("Airdrop")
+    if not ad then return nil end
+
+    local drop = ad:FindFirstChild("Drop")
+    if not drop then return nil end
+
+    return drop:FindFirstChild("Crate")
+end
+
+local function createBillboard(parent)
+    local bb = Instance.new("BillboardGui")
+    bb.Size = UDim2.new(0, MAX_SIZE, 0, MAX_SIZE)
+    bb.AlwaysOnTop = true
+    bb.Name = "AirdropBillboard"
+    bb.Adornee = parent
+    bb.Parent = parent
+
+    local tl = Instance.new("TextLabel")
+    tl.Size = UDim2.new(1, 0, 1, 0)
+    tl.BackgroundTransparency = 1
+    tl.Text = "Airdrop"
+    tl.TextScaled = true
+    tl.Font = Enum.Font.GothamBold
+    tl.TextColor3 = Color3.fromRGB(150, 200, 255)
+    tl.Parent = bb
+
+    return bb
+end
+
+local function removeBillboard()
+    if airdropBillboard then
+        airdropBillboard:Destroy()
+        airdropBillboard = nil
+    end
+end
+
+local function updateBillboard()
+    local crate = getAirdrop()
+    if not crate then
+        removeBillboard()
+        return
+    end
+
+    if not airdropBillboard then
+        airdropBillboard = createBillboard(crate)
+    end
+
+    local cam = workspace.CurrentCamera
+    local dist = (cam.CFrame.Position - crate.Position).Magnitude
+
+    local scale = (dist <= MAX_DISTANCE)
+        and (MAX_SIZE - ((dist / MAX_DISTANCE) * (MAX_SIZE - MIN_SIZE)))
+        or MIN_SIZE
+
+    airdropBillboard.Size = UDim2.new(0, scale, 0, scale)
+end
+
+-- Global toggle handler for Rayfield UI
+_G.ToggleAirdropBillboard = function(enabled)
+    running = enabled
+
+    if not enabled then
+        removeBillboard()
+        return
+    end
+
+    task.spawn(function()
+        while running do
+            updateBillboard()
+            task.wait(1) -- update once per second
+        end
+    end)
+end
