@@ -1,44 +1,111 @@
--- ======= TELEPORT TO SPECIFIC NPCS =======
-local Players = game:GetService("Players")
 local Workspace = game:GetService("Workspace")
-local LocalPlayer = Players.LocalPlayer
 
--- Utility: check if a model is a valid NPC
-local function isValidNPC(model)
+-- Check if a model is a valid NPC
+local function validNPC(model)
     if not model or not model:IsA("Model") then return false end
-    if Players:GetPlayerFromCharacter(model) then return false end
-    local humanoid = model:FindFirstChildOfClass("Humanoid")
-    return humanoid and humanoid.Health > 0
+    local hum = model:FindFirstChildOfClass("Humanoid")
+    return hum and hum.Health > 0
 end
 
--- Get all NPCs in the workspace
+-- Safe insert to avoid duplicates
+local function safeInsert(tbl, item, seen)
+    if seen[item] then return end
+    seen[item] = true
+    table.insert(tbl, item)
+end
+
+-- Get all NPCs in workspace
 local function getAllNPCs()
-    local npcs = {}
-    for _, obj in ipairs(Workspace:GetDescendants()) do
-        if obj:IsA("Model") and isValidNPC(obj) then
-            table.insert(npcs, obj)
+    local found = {}
+    local seen = {}
+
+    local function addFolder(folder)
+        if not folder then return end
+        for _, descendant in ipairs(folder:GetDescendants()) do
+            if descendant:IsA("Model") and validNPC(descendant) then
+                safeInsert(found, descendant, seen)
+            end
         end
     end
-    return npcs
+
+    -- Scan known NPC folders
+    local foldersToScan = {"NPCs", "TutorialTask", "TaskAdded", "TutorialAdded"}
+    for _, folderName in ipairs(foldersToScan) do
+        addFolder(Workspace:FindFirstChild(folderName))
+    end
+
+    -- Include top-level models that are not inside scanned folders
+    local function isInScannedFolder(obj)
+        for _, folderName in ipairs(foldersToScan) do
+            local folder = Workspace:FindFirstChild(folderName)
+            if folder and obj:IsDescendantOf(folder) then
+                return true
+            end
+        end
+        return false
+    end
+
+    for _, obj in ipairs(Workspace:GetChildren()) do
+        if obj:IsA("Model") and not isInScannedFolder(obj) and validNPC(obj) then
+            safeInsert(found, obj, seen)
+        end
+    end
+
+    return found
 end
 
--- Find nearest NPC by name (ignores vertical distance)
-local function findNearestNPCByName(npcName)
-    local nearest
-    local playerChar = LocalPlayer.Character
-    local playerRoot = playerChar and playerChar:FindFirstChild("HumanoidRootPart")
-    if not playerRoot then return nil end
+getgenv().findNearestNPCByName = function(name)
+    local Players = game:GetService("Players")
+    local Workspace = game:GetService("Workspace")
+    
+    -- Utility functions
+    local function validNPC(model)
+        local hum = model:FindFirstChildOfClass("Humanoid")
+        return hum and hum.Health > 0
+    end
 
-    local playerPos2D = Vector2.new(playerRoot.Position.X, playerRoot.Position.Z)
+    local function safeInsert(tbl, item, seen)
+        if seen[item] then return end
+        seen[item] = true
+        table.insert(tbl, item)
+    end
+
+    -- Find all NPCs
+    local function getAllNPCs()
+        local found = {}
+        local seen = {}
+        local folders = {Workspace:FindFirstChild("NPCs"), Workspace:FindFirstChild("TutorialTask"), Workspace:FindFirstChild("TaskAdded"), Workspace:FindFirstChild("TutorialAdded")}
+        for _, folder in ipairs(folders) do
+            if folder then
+                for _, obj in ipairs(folder:GetDescendants()) do
+                    if obj:IsA("Model") and validNPC(obj) then
+                        safeInsert(found, obj, seen)
+                    end
+                end
+            end
+        end
+        for _, obj in ipairs(Workspace:GetChildren()) do
+            if obj:IsA("Model") and validNPC(obj) then
+                safeInsert(found, obj, {}) -- avoid duplicates
+            end
+        end
+        return found
+    end
+
+    -- Find nearest NPC by name
+    local nearest
+    local playerChar = Players.LocalPlayer.Character
+    local hrp = playerChar and playerChar:FindFirstChild("HumanoidRootPart")
+    if not hrp then return nil end
+    local pos = hrp.Position
 
     for _, npc in ipairs(getAllNPCs()) do
-        if string.lower(npc.Name) == npcName:lower() then
-            local root = npc:FindFirstChild("HumanoidRootPart")
-            if root then
-                local npcPos2D = Vector2.new(root.Position.X, root.Position.Z)
-                local dist = (npcPos2D - playerPos2D).Magnitude
-                if not nearest or dist < (Vector2.new(nearest.Position.X, nearest.Position.Z) - playerPos2D).Magnitude then
-                    nearest = root
+        if string.lower(npc.Name) == name:lower() then
+            local npcRoot = npc:FindFirstChild("HumanoidRootPart")
+            if npcRoot then
+                local dist = (npcRoot.Position - pos).Magnitude
+                if not nearest or dist < (nearest.Position - pos).Magnitude then
+                    nearest = npcRoot
                 end
             end
         end
@@ -46,3 +113,4 @@ local function findNearestNPCByName(npcName)
 
     return nearest
 end
+
