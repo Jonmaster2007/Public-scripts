@@ -7,7 +7,7 @@ local player = Players.LocalPlayer or Players.PlayerAdded:Wait()
 -- GLOBAL SETTINGS
 getgenv().bagEspEnabled = true
 getgenv().ignoredItems = {}
-getgenv().bagMaxDistance = 100
+getgenv().bagMaxDistance = 10000
 getgenv().showBagText = false
 getgenv().selectedItem = nil
 
@@ -16,7 +16,7 @@ getgenv().defaultImportantItems = {
     ["Orange Keycard"] = Color3.fromRGB(255, 165, 0),
     ["Green Keycard"] = Color3.fromRGB(0, 255, 0),
     ["Purple Keycard"] = Color3.fromRGB(128, 0, 128),
-    ["Blue Keycard"] = Color3.fromRGB(128, 0, 128),
+    ["Blue Keycard"] = Color3.fromRGB(0, 100, 230),
     ["Photon Accelerator"] = Color3.fromRGB(102, 0, 51),
     ["Photon Blades"] = Color3.fromRGB(102, 0, 51),
     ["RSH-12"] = Color3.fromRGB(102, 0, 51),
