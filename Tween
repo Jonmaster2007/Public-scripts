@@ -98,9 +98,12 @@ getgenv().GetNearestAirdrop = function()
             if drop then
                 local crate = drop:FindFirstChild("Crate")
                 if crate then
-                    local dist = (crate.Position - hrp.Position).Magnitude
-                    if dist < distMin then
-                        nearest, distMin = crate, dist
+                    local part = crate:IsA("BasePart") and crate or crate.PrimaryPart or crate:FindFirstChildWhichIsA("BasePart")
+                    if part then
+                        local dist = (part.Position - hrp.Position).Magnitude
+                        if dist < distMin then
+                            nearest, distMin = part, dist
+                        end
                     end
                 end
             end
