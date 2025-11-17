@@ -1,5 +1,5 @@
 -- Separate Teleport Script (Terminal / DroneLoot / Airdrop)
--- Requires Rayfield already created + TTab available in globals
+-- Exports functions to _G for Rayfield usage
 
 local Players = game:GetService("Players")
 local localPlayer = Players.LocalPlayer
@@ -8,7 +8,7 @@ local localPlayer = Players.LocalPlayer
 ----------------------------------------------------------
 -- Utility: Teleport 3 studs above part
 ----------------------------------------------------------
-local function teleportAbove(part)
+function _G.TeleportAbove(part)
     local hrp = localPlayer.Character and localPlayer.Character:FindFirstChild("HumanoidRootPart")
     if not hrp then return end
 
@@ -23,9 +23,9 @@ end
 
 
 ----------------------------------------------------------
--- Find Nearest Airdrop Crate
+-- Nearest Airdrop Crate
 ----------------------------------------------------------
-local function getNearestAirdrop()
+function _G.GetNearestAirdrop()
     local debris = workspace:FindFirstChild("Debris")
     if not debris then return nil end
 
@@ -53,9 +53,9 @@ end
 
 
 ----------------------------------------------------------
--- Find Nearest DroneLoot
+-- Nearest DroneLoot
 ----------------------------------------------------------
-local function getNearestDroneLoot()
+function _G.GetNearestDroneLoot()
     local debris = workspace:FindFirstChild("Debris")
     if not debris then return nil end
 
@@ -85,9 +85,9 @@ end
 
 
 ----------------------------------------------------------
--- Find Nearest Terminal
+-- Nearest Terminal
 ----------------------------------------------------------
-local function getNearestTerminal()
+function _G.GetNearestTerminal()
     local terminalsFolder = workspace:FindFirstChild("Terminals")
     if not terminalsFolder then return nil end
 
@@ -114,5 +114,3 @@ local function getNearestTerminal()
 
     return nearest
 end
-
-
