@@ -14,16 +14,10 @@ getgenv().TweenToPosition = function(positionVector3)
     if not player then return end
 
     local char = player.Character
-    if not char then
-        warn("TweenToPosition: character not loaded yet")
-        return
-    end
+    if not char then warn("TweenToPosition: character not loaded yet") return end
 
-    local root = char:FindFirstChild("HumanoidRootPart")
-    if not root then
-        warn("TweenToPosition: HumanoidRootPart not found")
-        return
-    end
+    local root = char.PrimaryPart or char:FindFirstChild("HumanoidRootPart")
+    if not root then warn("TweenToPosition: no PrimaryPart or HRP") return end
 
     if typeof(positionVector3) ~= "Vector3" then
         warn("TweenToPosition: invalid Vector3")
@@ -43,7 +37,7 @@ getgenv().TweenToPosition = function(positionVector3)
     getgenv().blockRagdoll = true
     getgenv().antiDamageEnabled = true
 
-    -- Tween
+    -- Tween the entire character model via PrimaryPart
     local tween = TweenService:Create(
         root,
         TweenInfo.new(duration, Enum.EasingStyle.Linear),
@@ -59,6 +53,7 @@ getgenv().TweenToPosition = function(positionVector3)
         end)
     end)
 end
+
 
 
 
