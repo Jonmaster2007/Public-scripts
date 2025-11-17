@@ -1,16 +1,21 @@
---!strict
+---------------------------
+-- Airdrop + DroneLoot ESP
+---------------------------
 
 local Players = game:GetService("Players")
 local player = Players.LocalPlayer
 local playerGui = player:WaitForChild("PlayerGui")
 
-local billboards = {} -- [crate] = BillboardGui
+local billboards = {} -- [instance] = BillboardGui
 local running = false
 
 local MIN_SIZE = 12
 local MAX_SIZE = 30
 local MAX_DISTANCE = 500
 
+-----------------------------------------------------
+-- GET ALL CRATES (AirDrop)
+-----------------------------------------------------
 local function getAllCrates()
     local crates = {}
     local debris = workspace:FindFirstChild("Debris")
@@ -31,36 +36,64 @@ local function getAllCrates()
     return crates
 end
 
-local function createBillboard(crate)
+-----------------------------------------------------
+-- GET ALL DRONE LOOT
+-----------------------------------------------------
+local function getAllDroneLoot()
+    local loots = {}
+    local debris = workspace:FindFirstChild("Debris")
+    if not debris then return loots end
+
+    local lootFolder = debris:FindFirstChild("Loot")
+    if not lootFolder then return loots end
+
+    for _, obj in ipairs(lootFolder:GetChildren()) do
+        if obj.Name == "DroneLoot" then
+            table.insert(loots, obj)
+        end
+    end
+
+    return loots
+end
+
+-----------------------------------------------------
+-- BILLBOARD CREATION
+-----------------------------------------------------
+local function createBillboard(target, label)
     local bb = Instance.new("BillboardGui")
+    bb.Name = "ESP_" .. label
+    bb.Adornee = target
     bb.Size = UDim2.new(0, MAX_SIZE, 0, MAX_SIZE)
     bb.AlwaysOnTop = true
-    bb.Adornee = crate
-    bb.Name = "AirdropBillboard"
-    bb.Parent = playerGui -- important
+    bb.Parent = playerGui
 
-    local tl = Instance.new("TextLabel")
-    tl.Size = UDim2.new(1, 0, 1, 0)
-    tl.BackgroundTransparency = 1
-    tl.Text = "Airdrop"
-    tl.TextScaled = true
-    tl.Font = Enum.Font.GothamBold
-    tl.TextColor3 = Color3.fromRGB(150, 200, 255)
-    tl.Parent = bb
+    local txt = Instance.new("TextLabel")
+    txt.Size = UDim2.new(1, 0, 1, 0)
+    txt.BackgroundTransparency = 1
+    txt.TextScaled = true
+    txt.Font = Enum.Font.GothamBold
+    txt.TextColor3 = Color3.fromRGB(255, 200, 100)
+    txt.Text = label
+    txt.Parent = bb
 
     return bb
 end
 
+-----------------------------------------------------
+-- MAIN UPDATE
+-----------------------------------------------------
 local function update()
-    local crates = getAllCrates()
-
-    -- Mark existing crates
+    -- Track what still exists
     local present = {}
-    for _, crate in ipairs(crates) do
+
+    ----------
+    -- Airdrop crates
+    ----------
+    for _, crate in ipairs(getAllCrates()) do
         present[crate] = true
 
         if not billboards[crate] then
-            billboards[crate] = createBillboard(crate)
+            billboards[crate] = createBillboard(crate, "Airdrop")
         end
 
         local cam = workspace.CurrentCamera
@@ -72,19 +105,46 @@ local function update()
         billboards[crate].Size = UDim2.new(0, scale, 0, scale)
     end
 
-    -- Remove billboards for crates that disappeared
-    for crate, bb in pairs(billboards) do
-        if not present[crate] or not crate.Parent then
+    ----------
+    -- Drone Loot
+    ----------
+    for _, loot in ipairs(getAllDroneLoot()) do
+        local primary = loot.PrimaryPart or loot:FindFirstChildWhichIsA("BasePart")
+        if primary then
+            present[loot] = true
+
+            if not billboards[loot] then
+                billboards[loot] = createBillboard(primary, "Drone Loot")
+            end
+
+            local cam = workspace.CurrentCamera
+            local dist = (cam.CFrame.Position - primary.Position).Magnitude
+            local scale = (dist <= MAX_DISTANCE)
+                and (MAX_SIZE - ((dist / MAX_DISTANCE) * (MAX_SIZE - MIN_SIZE)))
+                or MIN_SIZE
+
+            billboards[loot].Size = UDim2.new(0, scale, 0, scale)
+        end
+    end
+
+    ----------
+    -- Cleanup removed objects
+    ----------
+    for inst, bb in pairs(billboards) do
+        if not present[inst] or not inst.Parent then
             bb:Destroy()
-            billboards[crate] = nil
+            billboards[inst] = nil
         end
     end
 end
 
-_G.ToggleAirdropBillboard = function(enabled)
-    running = enabled
+-----------------------------------------------------
+-- GLOBAL TOGGLE
+-----------------------------------------------------
+_G.ToggleAirdropBillboard = function(state)
+    running = state
 
-    if not enabled then
+    if not state then
         for _, bb in pairs(billboards) do
             bb:Destroy()
         end
