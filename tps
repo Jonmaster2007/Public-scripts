@@ -1,31 +1,31 @@
--- Separate Teleport Script (Terminal / DroneLoot / Airdrop)
--- Exports functions to _G for Rayfield usage
+--===============================
+--  TERMINAL / DRONE / AIRDROP TP SCRIPT
+--  Requires: _G.TweenToPosition already defined
+--===============================
 
 local Players = game:GetService("Players")
 local localPlayer = Players.LocalPlayer
 
-
 ----------------------------------------------------------
--- Utility: Teleport 3 studs above part
+-- Teleport 3 studs above a part
 ----------------------------------------------------------
-function _G.TeleportAbove(part)
+local function teleportAbove(part)
     local hrp = localPlayer.Character and localPlayer.Character:FindFirstChild("HumanoidRootPart")
-    if not hrp then return end
+    if not hrp or not part then return end
 
     local targetPos = part.Position + Vector3.new(0, 3, 0)
 
-    if getgenv().TweenToPosition then
-        getgenv().TweenToPosition(targetPos)
+    if _G.TweenToPosition then
+        _G.TweenToPosition(targetPos)
     else
         hrp.CFrame = CFrame.new(targetPos)
     end
 end
 
-
 ----------------------------------------------------------
--- Nearest Airdrop Crate
+-- Find Nearest Airdrop Crate
 ----------------------------------------------------------
-function _G.GetNearestAirdrop()
+local function getNearestAirdrop()
     local debris = workspace:FindFirstChild("Debris")
     if not debris then return nil end
 
@@ -41,8 +41,7 @@ function _G.GetNearestAirdrop()
             if crate then
                 local dist = (crate.Position - myHRP.Position).Magnitude
                 if dist < distMin then
-                    nearest = crate
-                    distMin = dist
+                    nearest, distMin = crate, dist
                 end
             end
         end
@@ -51,11 +50,10 @@ function _G.GetNearestAirdrop()
     return nearest
 end
 
-
 ----------------------------------------------------------
--- Nearest DroneLoot
+-- Find Nearest DroneLoot
 ----------------------------------------------------------
-function _G.GetNearestDroneLoot()
+local function getNearestDroneLoot()
     local debris = workspace:FindFirstChild("Debris")
     if not debris then return nil end
 
@@ -69,12 +67,11 @@ function _G.GetNearestDroneLoot()
 
     for _, obj in ipairs(lootFolder:GetChildren()) do
         if obj.Name == "DroneLoot" then
-            local primary = obj.PrimaryPart or obj:FindFirstChildWhichIsA("BasePart")
-            if primary then
-                local dist = (primary.Position - myHRP.Position).Magnitude
+            local pp = obj.PrimaryPart or obj:FindFirstChildWhichIsA("BasePart")
+            if pp then
+                local dist = (pp.Position - myHRP.Position).Magnitude
                 if dist < distMin then
-                    nearest = primary
-                    distMin = dist
+                    nearest, distMin = pp, dist
                 end
             end
         end
@@ -83,11 +80,10 @@ function _G.GetNearestDroneLoot()
     return nearest
 end
 
-
 ----------------------------------------------------------
--- Nearest Terminal
+-- Find Nearest Terminal
 ----------------------------------------------------------
-function _G.GetNearestTerminal()
+local function getNearestTerminal()
     local terminalsFolder = workspace:FindFirstChild("Terminals")
     if not terminalsFolder then return nil end
 
@@ -105,8 +101,7 @@ function _G.GetNearestTerminal()
             if pp then
                 local dist = (pp.Position - myHRP.Position).Magnitude
                 if dist < distMin then
-                    nearest = pp
-                    distMin = dist
+                    nearest, distMin = pp, dist
                 end
             end
         end
@@ -114,3 +109,11 @@ function _G.GetNearestTerminal()
 
     return nearest
 end
+
+----------------------------------------------------------
+-- Expose functions globally (UI uses these)
+----------------------------------------------------------
+_G.GetNearestAirdrop = getNearestAirdrop
+_G.GetNearestDroneLoot = getNearestDroneLoot
+_G.GetNearestTerminal = getNearestTerminal
+_G.TeleportAbove = teleportAbove
