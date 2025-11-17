@@ -1,49 +1,40 @@
 -- =====================================================
 --  UNIVERSAL WAYPOINT TWEEN FUNCTION (Safe Tween)
---  ✔ FULL 3D MOVEMENT (no more forced horizontal)
+--  + ALL TERMINAL / DRONE / AIRDROP FUNCTIONS
 -- =====================================================
 
--- Your defaults (only applied once when script loads)
+local Players = game:GetService("Players")
+local localPlayer = Players.LocalPlayer
+
+-- defaults (persist if already set)
 getgenv().antiDamageEnabled = (getgenv().antiDamageEnabled ~= nil) and getgenv().antiDamageEnabled or true
-getgenv().blockRagdoll = (getgenv().blockRagdoll ~= nil) and getgenv().blockRagdoll or false
+getgenv().blockRagdoll      = (getgenv().blockRagdoll ~= nil) and getgenv().blockRagdoll or false
 
+
+-- =====================================================
+--  MAIN TWEEN FUNCTION
+-- =====================================================
 getgenv().TweenToPosition = function(positionVector3)
-    local Players = game:GetService("Players")
     local TweenService = game:GetService("TweenService")
-    local player = Players.LocalPlayer
-    if not player then return end
-
-    local char = player.Character
-    if not char then
-        warn("TweenToPosition: character not loaded yet")
-        return
-    end
+    local char = localPlayer.Character
+    if not char then return warn("char missing") end
 
     local root = char:FindFirstChild("HumanoidRootPart")
-    if not root then
-        warn("TweenToPosition: HumanoidRootPart not found")
-        return
-    end
+    if not root then return warn("no HRP") end
 
     if typeof(positionVector3) ~= "Vector3" then
-        warn("TweenToPosition: invalid Vector3")
-        return
+        return warn("invalid vector")
     end
 
-    -- Distance → duration
     local distance = (positionVector3 - root.Position).Magnitude
-    local TIME_PER_STUD = 1 / 150
-    local duration = math.clamp(distance * TIME_PER_STUD, 0.1, 10)
+    local duration = math.clamp(distance * (1/150), 0.1, 10)
 
-    -- Save BOTH user settings
-    local originalRagdollState = getgenv().blockRagdoll
-    local originalAntiDmgState = getgenv().antiDamageEnabled
+    local oldRag = getgenv().blockRagdoll
+    local oldDmg = getgenv().antiDamageEnabled
 
-    -- Force protection ON during teleport
     getgenv().blockRagdoll = true
     getgenv().antiDamageEnabled = true
 
-    -- Tween
     local tween = TweenService:Create(
         root,
         TweenInfo.new(duration, Enum.EasingStyle.Linear),
@@ -53,11 +44,118 @@ getgenv().TweenToPosition = function(positionVector3)
 
     tween.Completed:Connect(function()
         task.delay(1, function()
-            -- Restore the user's settings after 1 second
-            getgenv().blockRagdoll = originalRagdollState
-            getgenv().antiDamageEnabled = originalAntiDmgState
+            getgenv().blockRagdoll = oldRag
+            getgenv().antiDamageEnabled = oldDmg
         end)
     end)
 end
 
 
+
+-- =====================================================
+--  TELEPORT 3 STUDS ABOVE A PART
+-- =====================================================
+getgenv().TeleportAbove = function(part)
+    local hrp = localPlayer.Character and localPlayer.Character:FindFirstChild("HumanoidRootPart")
+    if not hrp or not part then return end
+
+    local targetPos = part.Position + Vector3.new(0, 3, 0)
+    getgenv().TweenToPosition(targetPos)
+end
+
+
+
+-- =====================================================
+--  GET NEAREST AIRDROP
+-- =====================================================
+getgenv().GetNearestAirdrop = function()
+    local debris = workspace:FindFirstChild("Debris")
+    if not debris then return nil end
+
+    local hrp = localPlayer.Character and localPlayer.Character:FindFirstChild("HumanoidRootPart")
+    if not hrp then return nil end
+
+    local nearest, distMin = nil, math.huge
+
+    for _, ad in ipairs(debris:GetChildren()) do
+        if ad.Name == "Airdrop" then
+            local drop = ad:FindFirstChild("Drop")
+            local crate = drop and drop:FindFirstChild("Crate")
+            if crate then
+                local dist = (crate.Position - hrp.Position).Magnitude
+                if dist < distMin then
+                    nearest = crate
+                    distMin = dist
+                end
+            end
+        end
+    end
+
+    return nearest
+end
+
+
+
+-- =====================================================
+--  GET NEAREST DRONE LOOT
+-- =====================================================
+getgenv().GetNearestDroneLoot = function()
+    local debris = workspace:FindFirstChild("Debris")
+    if not debris then return nil end
+
+    local lootFolder = debris:FindFirstChild("Loot")
+    if not lootFolder then return nil end
+
+    local hrp = localPlayer.Character and localPlayer.Character:FindFirstChild("HumanoidRootPart")
+    if not hrp then return nil end
+
+    local nearest, distMin = nil, math.huge
+
+    for _, obj in ipairs(lootFolder:GetChildren()) do
+        if obj.Name == "DroneLoot" then
+            local pp = obj.PrimaryPart or obj:FindFirstChildWhichIsA("BasePart")
+            if pp then
+                local dist = (pp.Position - hrp.Position).Magnitude
+                if dist < distMin then
+                    nearest = pp
+                    distMin = dist
+                end
+            end
+        end
+    end
+
+    return nearest
+end
+
+
+
+-- =====================================================
+--  GET NEAREST TERMINAL
+-- =====================================================
+getgenv().GetNearestTerminal = function()
+    local terminalsFolder = workspace:FindFirstChild("Terminals")
+    if not terminalsFolder then return nil end
+
+    local terminalRoot = terminalsFolder:FindFirstChild("Terminal")
+    if not terminalRoot then return nil end
+
+    local hrp = localPlayer.Character and localPlayer.Character:FindFirstChild("HumanoidRootPart")
+    if not hrp then return nil end
+
+    local nearest, distMin = nil, math.huge
+
+    for _, obj in ipairs(terminalRoot:GetChildren()) do
+        if obj:IsA("Model") then
+            local pp = obj.PrimaryPart or obj:FindFirstChildWhichIsA("BasePart")
+            if pp then
+                local dist = (pp.Position - hrp.Position).Magnitude
+                if dist < distMin then
+                    nearest = pp
+                    distMin = dist
+                end
+            end
+        end
+    end
+
+    return nearest
+end
