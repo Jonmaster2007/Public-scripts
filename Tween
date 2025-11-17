@@ -3,6 +3,10 @@
 --  ✔ FULL 3D MOVEMENT (no more forced horizontal)
 -- =====================================================
 
+-- Your defaults (only applied once when script loads)
+getgenv().antiDamageEnabled = (getgenv().antiDamageEnabled ~= nil) and getgenv().antiDamageEnabled or true
+getgenv().blockRagdoll = (getgenv().blockRagdoll ~= nil) and getgenv().blockRagdoll or false
+
 getgenv().TweenToPosition = function(positionVector3)
     local Players = game:GetService("Players")
     local TweenService = game:GetService("TweenService")
@@ -31,15 +35,15 @@ getgenv().TweenToPosition = function(positionVector3)
     local TIME_PER_STUD = 1 / 150
     local duration = math.clamp(distance * TIME_PER_STUD, 0.1, 10)
 
-    -- Save states
-    local originalRagdollState = getgenv().blockRagdoll or false
-    local originalAntiDmgState = getgenv().antiDamageEnabled or false
+    -- Save BOTH user settings
+    local originalRagdollState = getgenv().blockRagdoll
+    local originalAntiDmgState = getgenv().antiDamageEnabled
 
-    -- Enable protections
+    -- Force protection ON during teleport
     getgenv().blockRagdoll = true
     getgenv().antiDamageEnabled = true
 
-    -- Tween, now with REAL full 3D movement
+    -- Tween
     local tween = TweenService:Create(
         root,
         TweenInfo.new(duration, Enum.EasingStyle.Linear),
@@ -48,8 +52,12 @@ getgenv().TweenToPosition = function(positionVector3)
     tween:Play()
 
     tween.Completed:Connect(function()
-        getgenv().blockRagdoll = originalRagdollState
-        getgenv().antiDamageEnabled = originalAntiDmgState
+        task.delay(1, function()
+            -- Restore the user's settings after 1 second
+            getgenv().blockRagdoll = originalRagdollState
+            getgenv().antiDamageEnabled = originalAntiDmgState
+        end)
     end)
 end
+
 
