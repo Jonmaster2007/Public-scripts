@@ -88,73 +88,52 @@ local function chooseBestPartFromModel(model)
     return model:FindFirstChildWhichIsA("BasePart", true)
 end
 
--- GET NEAREST AIRDROP
+-- GET NEAREST AIRDROP (returns the exact Crate part used by ESP)
 getgenv().GetNearestAirdrop = function()
-    local debris = Workspace:FindFirstChild("Debris")
+    local debris = workspace:FindFirstChild("Debris")
     if not debris then return nil end
-    local hrp = getHRP()
+    local hrp = localPlayer.Character and localPlayer.Character:FindFirstChild("HumanoidRootPart")
     if not hrp then return nil end
 
     local nearest, distMin = nil, math.huge
 
-    for _, child in ipairs(debris:GetChildren()) do
-        if string.lower(child.Name) == "airdrop" then
-            local targetPart = chooseBestPartFromModel(child)
-            if targetPart then
-                local dist = (targetPart.Position - hrp.Position).Magnitude
-                if dist < distMin then nearest, distMin = targetPart, dist end
-            end
-            local drop = child:FindFirstChild("Drop") or child:FindFirstChild("drop")
+    for _, ad in ipairs(debris:GetChildren()) do
+        if ad.Name == "Airdrop" then
+            local drop = ad:FindFirstChild("Drop")
             if drop then
-                local crate = drop:FindFirstChild("Crate") or drop:FindFirstChild("crate") or drop
-                local part = chooseBestPartFromModel(crate)
-                if part then
-                    local dist = (part.Position - hrp.Position).Magnitude
-                    if dist < distMin then nearest, distMin = part, dist end
+                local crate = drop:FindFirstChild("Crate")
+                if crate then
+                    local dist = (crate.Position - hrp.Position).Magnitude
+                    if dist < distMin then
+                        nearest, distMin = crate, dist
+                    end
                 end
             end
         end
     end
 
-    for _, desc in ipairs(debris:GetDescendants()) do
-        if desc:IsA("BasePart") and string.lower(desc.Name) == "base" then
-            if desc:FindFirstAncestor("Crate") or desc:FindFirstAncestor("Drop") or desc:FindFirstAncestor("Airdrop") then
-                local dist = (desc.Position - hrp.Position).Magnitude
-                if dist < distMin then nearest, distMin = desc, dist end
-            end
-        end
-    end
-
     return nearest
 end
 
--- GET NEAREST DRONE LOOT
+-- GET NEAREST DRONE LOOT (returns the exact part used by ESP)
 getgenv().GetNearestDroneLoot = function()
-    local debris = Workspace:FindFirstChild("Debris")
+    local debris = workspace:FindFirstChild("Debris")
     if not debris then return nil end
-    local lootFolder = debris:FindFirstChild("Loot") or debris:FindFirstChild("loot")
+    local lootFolder = debris:FindFirstChild("Loot")
     if not lootFolder then return nil end
-    local hrp = getHRP()
+    local hrp = localPlayer.Character and localPlayer.Character:FindFirstChild("HumanoidRootPart")
     if not hrp then return nil end
 
     local nearest, distMin = nil, math.huge
 
-    for _, obj in ipairs(lootFolder:GetChildren()) do
-        if string.lower(obj.Name) == "droneloot" then
-            local part = chooseBestPartFromModel(obj)
-            if part then
-                local dist = (part.Position - hrp.Position).Magnitude
-                if dist < distMin then nearest, distMin = part, dist end
-            end
-        end
-    end
-
-    for _, desc in ipairs(lootFolder:GetDescendants()) do
-        if desc:IsA("BasePart") then
-            local name = string.lower(desc.Name)
-            if name == "cylinder" or name == "lid" or name == "flare" then
-                local dist = (desc.Position - hrp.Position).Magnitude
-                if dist < distMin then nearest, distMin = desc, dist end
+    for _, loot in ipairs(lootFolder:GetChildren()) do
+        if loot.Name == "DroneLoot" then
+            local primary = loot.PrimaryPart or loot:FindFirstChildWhichIsA("BasePart")
+            if primary then
+                local dist = (primary.Position - hrp.Position).Magnitude
+                if dist < distMin then
+                    nearest, distMin = primary, dist
+                end
             end
         end
     end
@@ -162,30 +141,50 @@ getgenv().GetNearestDroneLoot = function()
     return nearest
 end
 
--- GET NEAREST TERMINAL
+-- GET NEAREST TERMINAL (explicitly from workspace.Terminals)
 getgenv().GetNearestTerminal = function()
-    local terminalsFolder = Workspace:FindFirstChild("Terminals") or Workspace:FindFirstChild("terminal")
+    local terminalsFolder = workspace:FindFirstChild("Terminals")
     if not terminalsFolder then return nil end
-    local hrp = getHRP()
+    local hrp = localPlayer.Character and localPlayer.Character:FindFirstChild("HumanoidRootPart")
     if not hrp then return nil end
 
     local nearest, distMin = nil, math.huge
 
-    for _, child in ipairs(terminalsFolder:GetChildren()) do
-        local part = chooseBestPartFromModel(child)
-        if part then
-            local dist = (part.Position - hrp.Position).Magnitude
-            if dist < distMin then nearest, distMin = part, dist end
-        end
-    end
-
-    for _, desc in ipairs(terminalsFolder:GetDescendants()) do
-        if desc:IsA("BasePart") then
-            local dist = (desc.Position - hrp.Position).Magnitude
-            if dist < distMin then nearest, distMin = desc, dist end
+    for _, terminal in ipairs(terminalsFolder:GetChildren()) do
+        if terminal:IsA("Model") then
+            local primary = terminal.PrimaryPart or terminal:FindFirstChildWhichIsA("BasePart")
+            if primary then
+                local dist = (primary.Position - hrp.Position).Magnitude
+                if dist < distMin then
+                    nearest, distMin = primary, dist
+                end
+            end
+        elseif terminal:IsA("BasePart") then
+            local dist = (terminal.Position - hrp.Position).Magnitude
+            if dist < distMin then
+                nearest, distMin = terminal, dist
+            end
         end
     end
 
     return nearest
 end
 
+-- TELEPORT 3 STUDS ABOVE TARGET PART OR MODEL
+getgenv().TeleportAbove = function(target)
+    if not target then return end
+
+    local position
+    if target:IsA("BasePart") then
+        position = target.Position + Vector3.new(0, 3, 0)
+    elseif target:IsA("Model") then
+        local primary = target.PrimaryPart or target:FindFirstChildWhichIsA("BasePart")
+        if primary then
+            position = primary.Position + Vector3.new(0, 3, 0)
+        end
+    end
+
+    if position then
+        getgenv().TweenToPosition(position)
+    end
+end
