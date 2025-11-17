@@ -60,4 +60,5 @@ getgenv().TweenToPosition = function(positionVector3)
     end)
 end
 
+_G.TweenToPosition = getgenv().TweenToPosition
 
