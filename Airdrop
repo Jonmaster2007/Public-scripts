@@ -1,33 +1,43 @@
+--!strict
+
 local Players = game:GetService("Players")
 local player = Players.LocalPlayer
+local playerGui = player:WaitForChild("PlayerGui")
 
-local airdropBillboard = nil
+local billboards = {} -- [crate] = BillboardGui
 local running = false
 
 local MIN_SIZE = 12
 local MAX_SIZE = 30
 local MAX_DISTANCE = 500
 
-local function getAirdrop()
-    local root = workspace:FindFirstChild("Debris")
-    if not root then return nil end
+local function getAllCrates()
+    local crates = {}
+    local debris = workspace:FindFirstChild("Debris")
+    if not debris then return crates end
 
-    local ad = root:FindFirstChild("Airdrop")
-    if not ad then return nil end
+    for _, ad in ipairs(debris:GetChildren()) do
+        if ad.Name == "Airdrop" then
+            local drop = ad:FindFirstChild("Drop")
+            if drop then
+                local crate = drop:FindFirstChild("Crate")
+                if crate then
+                    table.insert(crates, crate)
+                end
+            end
+        end
+    end
 
-    local drop = ad:FindFirstChild("Drop")
-    if not drop then return nil end
-
-    return drop:FindFirstChild("Crate")
+    return crates
 end
 
-local function createBillboard(parent)
+local function createBillboard(crate)
     local bb = Instance.new("BillboardGui")
     bb.Size = UDim2.new(0, MAX_SIZE, 0, MAX_SIZE)
     bb.AlwaysOnTop = true
+    bb.Adornee = crate
     bb.Name = "AirdropBillboard"
-    bb.Adornee = parent
-    bb.Parent = parent
+    bb.Parent = playerGui -- important
 
     local tl = Instance.new("TextLabel")
     tl.Size = UDim2.new(1, 0, 1, 0)
@@ -41,47 +51,51 @@ local function createBillboard(parent)
     return bb
 end
 
-local function removeBillboard()
-    if airdropBillboard then
-        airdropBillboard:Destroy()
-        airdropBillboard = nil
+local function update()
+    local crates = getAllCrates()
+
+    -- Mark existing crates
+    local present = {}
+    for _, crate in ipairs(crates) do
+        present[crate] = true
+
+        if not billboards[crate] then
+            billboards[crate] = createBillboard(crate)
+        end
+
+        local cam = workspace.CurrentCamera
+        local dist = (cam.CFrame.Position - crate.Position).Magnitude
+        local scale = (dist <= MAX_DISTANCE)
+            and (MAX_SIZE - ((dist / MAX_DISTANCE) * (MAX_SIZE - MIN_SIZE)))
+            or MIN_SIZE
+
+        billboards[crate].Size = UDim2.new(0, scale, 0, scale)
+    end
+
+    -- Remove billboards for crates that disappeared
+    for crate, bb in pairs(billboards) do
+        if not present[crate] or not crate.Parent then
+            bb:Destroy()
+            billboards[crate] = nil
+        end
     end
 end
 
-local function updateBillboard()
-    local crate = getAirdrop()
-    if not crate then
-        removeBillboard()
-        return
-    end
-
-    if not airdropBillboard then
-        airdropBillboard = createBillboard(crate)
-    end
-
-    local cam = workspace.CurrentCamera
-    local dist = (cam.CFrame.Position - crate.Position).Magnitude
-
-    local scale = (dist <= MAX_DISTANCE)
-        and (MAX_SIZE - ((dist / MAX_DISTANCE) * (MAX_SIZE - MIN_SIZE)))
-        or MIN_SIZE
-
-    airdropBillboard.Size = UDim2.new(0, scale, 0, scale)
-end
-
--- Global toggle handler for Rayfield UI
 _G.ToggleAirdropBillboard = function(enabled)
     running = enabled
 
     if not enabled then
-        removeBillboard()
+        for _, bb in pairs(billboards) do
+            bb:Destroy()
+        end
+        billboards = {}
         return
     end
 
     task.spawn(function()
         while running do
-            updateBillboard()
-            task.wait(1) -- update once per second
+            update()
+            task.wait(1)
         end
     end)
 end
