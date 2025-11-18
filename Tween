@@ -112,34 +112,38 @@ getgenv().TweenToPosition = function(targetPos)
         -- ZONE CHECK — Determine if direct horizontal path intersects zone
         -----------------------------------------------------
         local function segmentIntersectsZone(a, b)
-            -- Check only XZ (horizontal cross-section)
-            local function clamp(v, min, max)
-                return math.max(min, math.min(max, v))
+            -- Line segment vs AABB intersection test (3D)
+            local dir = b - a
+            local tMin = 0
+            local tMax = 1
+
+            local function axisCheck(axis, minB, maxB)
+                local origin = a[axis]
+                local direction = dir[axis]
+
+                if math.abs(direction) < 1e-6 then
+                    return origin >= minB and origin <= maxB
+                end
+
+                local t1 = (minB - origin) / direction
+                local t2 = (maxB - origin) / direction
+                if t1 > t2 then t1, t2 = t2, t1 end
+
+                if t2 < tMin or t1 > tMax then
+                    return false
+                end
+
+                if t1 > tMin then tMin = t1 end
+                if t2 < tMax then tMax = t2 end
+                return true
             end
 
-            -- closest point from segment AB to AABB
-            local function closestPointOnSegment(p, q, pnt)
-                local t = ((pnt - p):Dot(q - p)) / ((q - p).Magnitude^2)
-                t = clamp(t, 0, 1)
-                return p + (q - p) * t
-            end
-
-            local segA = Vector3.new(a.X, 0, a.Z)
-            local segB = Vector3.new(b.X, 0, b.Z)
-
-            local zoneCenter = Vector3.new(
-                (ZoneMin.X + ZoneMax.X)/2,
-                0,
-                (ZoneMin.Z + ZoneMax.Z)/2
-            )
-
-            local cp = closestPointOnSegment(segA, segB, zoneCenter)
-
-            return (
-                cp.X >= ZoneMin.X - PADDING and cp.X <= ZoneMax.X + PADDING and
-                cp.Z >= ZoneMin.Z - PADDING and cp.Z <= ZoneMax.Z + PADDING
-            )
+            return
+                axisCheck("X", ZoneMin.X - PADDING, ZoneMax.X + PADDING) and
+                axisCheck("Y", ZoneMin.Y - PADDING, ZoneMax.Y + PADDING) and
+                axisCheck("Z", ZoneMin.Z - PADDING, ZoneMax.Z + PADDING)
         end
+
 
         -- HORIZONTAL POINTS for PATH OPTIONS
         local leftX  = ZoneMin.X - PADDING  
@@ -157,33 +161,20 @@ getgenv().TweenToPosition = function(targetPos)
         local underPos2  = Vector3.new(targetPos.X, underPathY, targetPos.Z)
 
         -----------------------------------------------------
-        -- Determine costs (choose shortest path)
+        -- If horizontal path intersects zone → ALWAYS go under
         -----------------------------------------------------
-        local function dist(a, b) return (a - b).Magnitude end
+        local horizStart = downPos
+        local horizEnd   = Vector3.new(targetPos.X, horizontalY, targetPos.Z)
 
-        local costLeft =
-            dist(downPos, leftPathPos1) +
-            dist(leftPathPos1, leftPathPos2) +
-            dist(leftPathPos2, Vector3.new(targetPos.X, horizontalY, targetPos.Z))
+        local horizontalHitsZone =
+            segmentIntersectsZone(horizStart, horizEnd)
 
-        local costRight =
-            dist(downPos, rightPathPos1) +
-            dist(rightPathPos1, rightPathPos2) +
-            dist(rightPathPos2, Vector3.new(targetPos.X, horizontalY, targetPos.Z))
+        local best = "straight"
 
-        local costUnder =
-            dist(downPos, underPos1) +
-            dist(underPos1, underPos2) +
-            dist(underPos2, Vector3.new(targetPos.X, horizontalY, targetPos.Z))
+        if horizontalHitsZone and not pointInsideZone(targetPos) then
+            best = "underZone"  -- override everything
+        end
 
-        -----------------------------------------------------
-        -- Choose best path
-        -----------------------------------------------------
-        local best = "under"
-        local bestCost = costUnder
-
-        if costLeft < bestCost then best, bestCost = "left", costLeft end
-        if costRight < bestCost then best, bestCost = "right", costRight end
 
         -----------------------------------------------------
         -- EXECUTE PATH
@@ -192,19 +183,18 @@ getgenv().TweenToPosition = function(targetPos)
         -- DOWN
         doTween(downPos)
 
-        if best == "left" then
-            doTween(leftPathPos1)
-            doTween(leftPathPos2)
-            doTween(Vector3.new(targetPos.X, horizontalY, targetPos.Z))
+        if best == "underZone" then
+            -- Force path to bottom of zone - 10
+            local safeY = ZoneMin.Y - 10
 
-        elseif best == "right" then
-            doTween(rightPathPos1)
-            doTween(rightPathPos2)
-            doTween(Vector3.new(targetPos.X, horizontalY, targetPos.Z))
+            local under1 = Vector3.new(startPos.X, safeY, startPos.Z)
+            local under2 = Vector3.new(targetPos.X, safeY, targetPos.Z)
 
-        else -- "under"
-            doTween(underPos1)
-            doTween(underPos2)
+            doTween(under1)
+            doTween(under2)
+
+        else
+            -- Normal horizontal
             doTween(Vector3.new(targetPos.X, horizontalY, targetPos.Z))
         end
 
