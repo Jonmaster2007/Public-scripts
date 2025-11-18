@@ -6,8 +6,8 @@
 _G.undergroundTweenEnabled = _G.undergroundTweenEnabled or false
 
 -- Forbidden Zone (A and B corners)
-local ZoneA = Vector3.new(200, 100, 200)
-local ZoneB = Vector3.new(100, -100, 130)
+local ZoneA = Vector3.new(789, 44, -848)
+local ZoneB = Vector3.new(411, -10, -1338)
 
 local ZoneMin = Vector3.new(
     math.min(ZoneA.X, ZoneB.X),
