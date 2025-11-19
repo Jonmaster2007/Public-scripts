@@ -3,7 +3,7 @@
 --  ✔ FULL 3D MOVEMENT (no more forced horizontal)
 -- =====================================================
 
-_G.undergroundTweenEnabled = _G.undergroundTweenEnabled or false
+_G.undergroundTweenEnabled = true
 
 -- Forbidden Zone (A and B corners)
 local ZoneA = Vector3.new(789, 44, -848)
