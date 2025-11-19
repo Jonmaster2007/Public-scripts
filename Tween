@@ -39,6 +39,54 @@ getgenv().blockRagdoll = (getgenv().blockRagdoll ~= nil) and getgenv().blockRagd
 --  ADVANCED TWEEN SYSTEM WITH PATHFIND AROUND ZONE
 -- =====================================================
 
+-- =====================================================
+-- NORMAL TWEEN (used when force-normal or underground toggled OFF)
+-- =====================================================
+
+getgenv().NormalTweenToPosition = function(targetPos)
+    local Players = game:GetService("Players")
+    local TweenService = game:GetService("TweenService")
+    local player = Players.LocalPlayer
+    if not player then return end
+
+    local char = player.Character
+    if not char then return end
+    local root = char:FindFirstChild("HumanoidRootPart")
+    if not root then return end
+
+    if typeof(targetPos) ~= "Vector3" then return end
+
+    local oldRagdoll = getgenv().blockRagdoll
+    local oldAnti = getgenv().antiDamageEnabled
+
+    getgenv().blockRagdoll = true
+    getgenv().antiDamageEnabled = true
+
+    local dist = (targetPos - root.Position).Magnitude
+    local duration = math.clamp(dist * (1/150), 0.1, 10)
+
+    local tween = TweenService:Create(
+        root,
+        TweenInfo.new(duration, Enum.EasingStyle.Linear),
+        {CFrame = CFrame.new(targetPos)}
+    )
+    tween:Play()
+    tween.Completed:Wait()
+
+    task.delay(1, function()
+        getgenv().blockRagdoll = oldRagdoll
+        getgenv().antiDamageEnabled = oldAnti
+    end)
+end
+
+_G.ForceNormalTween = function(pos)
+    if getgenv().NormalTweenToPosition then
+        getgenv().NormalTweenToPosition(pos)
+    else
+        getgenv().TweenToPosition(pos)
+    end
+end
+
 getgenv().TweenToPosition = function(targetPos)
     local Players = game:GetService("Players")
     local TweenService = game:GetService("TweenService")
@@ -80,7 +128,7 @@ getgenv().TweenToPosition = function(targetPos)
     -- MODE A — NORMAL DIRECT TWEEN (no underground)
     ---------------------------------------------------------
     if not _G.undergroundTweenEnabled then
-        doTween(targetPos)
+        getgenv().NormalTweenToPosition(targetPos)
     else
     ---------------------------------------------------------
     -- MODE B — ADVANCED UNDERGROUND WITH ZONE AVOIDANCE
@@ -343,3 +391,5 @@ getgenv().TeleportAbove = function(target)
         getgenv().TweenToPosition(position)
     end
 end
+
+
