@@ -21,7 +21,7 @@ local ZoneMax = Vector3.new(
     math.max(ZoneA.Z, ZoneB.Z)
 )
 
-local PADDING = 3 -- studs
+local PADDING = 4 -- studs
 
 local function pointInsideZone(v)
     return (
@@ -140,13 +140,13 @@ getgenv().TweenToPosition = function(targetPos)
         -----------------------------------------------------
         local downY
         if startPos.Y >= 37 then
-            downY = 27
+            downY = 25
         else
-            downY = startPos.Y - 10
+            downY = startPos.Y - 12
         end
 
-        -- Also ensure we are 10 under target at horizontal
-        local neededTargetDown = targetPos.Y - 10
+        -- Also ensure we are 12 under target at horizontal
+        local neededTargetDown = targetPos.Y - 12
         if downY > neededTargetDown then
             downY = neededTargetDown
         end
