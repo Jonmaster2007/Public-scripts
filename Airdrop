@@ -25,9 +25,15 @@ local function getAllCrates()
         if ad.Name == "Airdrop" then
             local drop = ad:FindFirstChild("Drop")
             if drop then
-                local crate = drop:FindFirstChild("Crate")
-                if crate then
-                    table.insert(crates, crate)
+                local crateModel = drop:FindFirstChild("Crate")
+                if crateModel then
+                    local cratePart =
+                        crateModel.PrimaryPart
+                        or crateModel:FindFirstChildWhichIsA("BasePart")
+                    
+                    if cratePart then
+                        table.insert(crates, cratePart)
+                    end
                 end
             end
         end
@@ -60,6 +66,8 @@ end
 -- BILLBOARD CREATION
 -----------------------------------------------------
 local function createBillboard(target, label)
+    if not target or not target:IsA("BasePart") then return nil end
+
     local bb = Instance.new("BillboardGui")
     bb.Name = "ESP_" .. label
     bb.Adornee = target
@@ -79,6 +87,7 @@ local function createBillboard(target, label)
     return bb
 end
 
+
 -----------------------------------------------------
 -- MAIN UPDATE
 -----------------------------------------------------
@@ -89,20 +98,21 @@ local function update()
     ----------
     -- Airdrop crates
     ----------
-    for _, crate in ipairs(getAllCrates()) do
-        present[crate] = true
 
-        if not billboards[crate] then
-            billboards[crate] = createBillboard(crate, "Airdrop")
+    for _, cratePart in ipairs(getAllCrates()) do
+        present[cratePart] = true
+
+        if not billboards[cratePart] then
+            billboards[cratePart] = createBillboard(cratePart, "Airdrop")
         end
 
         local cam = workspace.CurrentCamera
-        local dist = (cam.CFrame.Position - crate.Position).Magnitude
+        local dist = (cam.CFrame.Position - cratePart.Position).Magnitude
         local scale = (dist <= MAX_DISTANCE)
             and (MAX_SIZE - ((dist / MAX_DISTANCE) * (MAX_SIZE - MIN_SIZE)))
             or MIN_SIZE
 
-        billboards[crate].Size = UDim2.new(0, scale, 0, scale)
+        billboards[cratePart].Size = UDim2.new(0, scale, 0, scale)
     end
 
     ----------
