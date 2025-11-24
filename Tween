@@ -3,7 +3,8 @@
 --  ✔ FULL 3D MOVEMENT (no more forced horizontal)
 -- =====================================================
 
-getgenv()._pendingRestore = nil
+getgenv()._tweenActiveCount = 0
+getgenv()._savedOriginal = nil
 
 _G.undergroundTweenEnabled = true
 
@@ -33,7 +34,25 @@ local function pointInsideZone(v)
     )
 end
 
-local function queueProtectionRestore(originalRagdoll, originalAntiDmg)
+local function local thisTween = tick()
+getgenv()._lastTweenFinish = thisTween
+
+task.delay(1, function()
+    -- If a newer tween finished, ignore this restore
+    if getgenv()._lastTweenFinish ~= thisTween then return end
+
+    getgenv()._tweenActiveCount -= 1
+
+    -- Only restore when NO tweens remain
+    if getgenv()._tweenActiveCount == 0 then
+        if getgenv()._savedOriginal then
+            getgenv().blockRagdoll = getgenv()._savedOriginal.ragdoll
+            getgenv().antiDamageEnabled = getgenv()._savedOriginal.anti
+        end
+        getgenv()._savedOriginal = nil
+    end
+end)
+
     getgenv()._pendingRestore = {
         ragdoll = originalRagdoll,
         anti = originalAntiDmg,
@@ -71,13 +90,26 @@ getgenv().NormalTweenToPosition = function(targetPos)
 
     if typeof(targetPos) ~= "Vector3" then return end
 
-    -- Save original settings BEFORE modifying them
-    local originalRagdoll = getgenv().blockRagdoll
-    local originalAntiDmg = getgenv().antiDamageEnabled    
+    -- Only save original values if this is the first tween
+    
+    if getgenv()._tweenActiveCount == 0 then
+    
+        getgenv()._savedOriginal = {
+    
+            ragdoll = getgenv().blockRagdoll,
+    
+            anti = getgenv().antiDamageEnabled
+    
+        }
+    
+    end
+
+    getgenv()._tweenActiveCount += 1
 
     -- Force protection ON during tween
     getgenv().blockRagdoll = true
     getgenv().antiDamageEnabled = true
+
 
     local dist = (targetPos - root.Position).Magnitude
     local duration = math.clamp(dist * (1/150), 0.1, 10)
@@ -90,7 +122,25 @@ getgenv().NormalTweenToPosition = function(targetPos)
     tween:Play()
     tween.Completed:Wait()
 
-    queueProtectionRestore(originalRagdoll, originalAntiDmg)
+    local thisTween = tick()
+    getgenv()._lastTweenFinish = thisTween
+
+    task.delay(1, function()
+        -- If a newer tween finished, ignore this restore
+        if getgenv()._lastTweenFinish ~= thisTween then return end
+
+        getgenv()._tweenActiveCount -= 1
+
+        -- Only restore when NO tweens remain
+        if getgenv()._tweenActiveCount == 0 then
+            if getgenv()._savedOriginal then
+                getgenv().blockRagdoll = getgenv()._savedOriginal.ragdoll
+                getgenv().antiDamageEnabled = getgenv()._savedOriginal.anti
+            end
+            getgenv()._savedOriginal = nil
+        end
+    end)
+
 
 end
 
@@ -124,11 +174,20 @@ getgenv().TweenToPosition = function(targetPos)
     end
 
     -- Save original protection states
-    local originalRagdoll = getgenv().blockRagdoll
-    local originalAntiDmg = getgenv().antiDamageEnabled
+    -- Only save original values if this is the first tween
+    if getgenv()._tweenActiveCount == 0 then
+        getgenv()._savedOriginal = {
+            ragdoll = getgenv().blockRagdoll,
+            anti = getgenv().antiDamageEnabled
+        }
+    end
 
+    getgenv()._tweenActiveCount += 1
+
+    -- Force protection ON during tween
     getgenv().blockRagdoll = true
     getgenv().antiDamageEnabled = true
+
 
     local function doTween(goalPos)
         local dist = (goalPos - root.Position).Magnitude
@@ -226,8 +285,24 @@ getgenv().TweenToPosition = function(targetPos)
     end
 
     -- Restore both protections & UI after tween
-    queueProtectionRestore(originalRagdoll, originalAntiDmg)
+    local thisTween = tick()
+    getgenv()._lastTweenFinish = thisTween
 
+    task.delay(1, function()
+        -- If a newer tween finished, ignore this restore
+        if getgenv()._lastTweenFinish ~= thisTween then return end
+
+        getgenv()._tweenActiveCount -= 1
+
+        -- Only restore when NO tweens remain
+        if getgenv()._tweenActiveCount == 0 then
+            if getgenv()._savedOriginal then
+                getgenv().blockRagdoll = getgenv()._savedOriginal.ragdoll
+                getgenv().antiDamageEnabled = getgenv()._savedOriginal.anti
+            end
+            getgenv()._savedOriginal = nil
+        end
+    end)
 end
 
 
@@ -366,4 +441,23 @@ getgenv().TeleportAbove = function(target)
     end
 end
 
+
+local thisTween = tick()
+getgenv()._lastTweenFinish = thisTween
+
+task.delay(1, function()
+    -- If a newer tween finished, ignore this restore
+    if getgenv()._lastTweenFinish ~= thisTween then return end
+
+    getgenv()._tweenActiveCount -= 1
+
+    -- Only restore when NO tweens remain
+    if getgenv()._tweenActiveCount == 0 then
+        if getgenv()._savedOriginal then
+            getgenv().blockRagdoll = getgenv()._savedOriginal.ragdoll
+            getgenv().antiDamageEnabled = getgenv()._savedOriginal.anti
+        end
+        getgenv()._savedOriginal = nil
+    end
+end)
 
