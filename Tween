@@ -32,15 +32,11 @@ local function pointInsideZone(v)
 end
 
 -- Default settings
-getgenv().antiDamageEnabled = (getgenv().antiDamageEnabled ~= nil) and getgenv().antiDamageEnabled or true
-getgenv().blockRagdoll = (getgenv().blockRagdoll ~= nil) and getgenv().blockRagdoll or false
+getgenv().antiDamageEnabled     = getgenv().defantiDamageEnabled or true
+getgenv().blockRagdoll          = getgenv().defblockRagdoll or false
 
 -- =====================================================
 --  ADVANCED TWEEN SYSTEM WITH PATHFIND AROUND ZONE
--- =====================================================
-
--- =====================================================
--- NORMAL TWEEN (used when force-normal or underground toggled OFF)
 -- =====================================================
 
 getgenv().NormalTweenToPosition = function(targetPos)
@@ -56,9 +52,7 @@ getgenv().NormalTweenToPosition = function(targetPos)
 
     if typeof(targetPos) ~= "Vector3" then return end
 
-    local oldRagdoll = getgenv().blockRagdoll
-    local oldAnti = getgenv().antiDamageEnabled
-
+    -- Force ON
     getgenv().blockRagdoll = true
     getgenv().antiDamageEnabled = true
 
@@ -74,17 +68,10 @@ getgenv().NormalTweenToPosition = function(targetPos)
     tween.Completed:Wait()
 
     task.delay(1, function()
-        getgenv().blockRagdoll = oldRagdoll
-        getgenv().antiDamageEnabled = oldAnti
+        -- Restore to user preference
+        getgenv().blockRagdoll        = getgenv().defblockRagdoll
+        getgenv().antiDamageEnabled   = getgenv().defantiDamageEnabled
     end)
-end
-
-_G.ForceNormalTween = function(pos)
-    if getgenv().NormalTweenToPosition then
-        getgenv().NormalTweenToPosition(pos)
-    else
-        getgenv().TweenToPosition(pos)
-    end
 end
 
 getgenv().TweenToPosition = function(targetPos)
@@ -103,10 +90,6 @@ getgenv().TweenToPosition = function(targetPos)
         warn("TweenToPosition: invalid Vector3")
         return
     end
-
-    -- Save original protection states
-    local originalRagdoll = getgenv().blockRagdoll
-    local originalAntiDmg = getgenv().antiDamageEnabled
 
     getgenv().blockRagdoll = true
     getgenv().antiDamageEnabled = true
@@ -252,8 +235,8 @@ getgenv().TweenToPosition = function(targetPos)
 
     -- Restore protection 1 sec later
     task.delay(1, function()
-        getgenv().blockRagdoll = originalRagdoll
-        getgenv().antiDamageEnabled = originalAntiDmg
+        getgenv().blockRagdoll = getgenv().defblockRagdoll
+        getgenv().antiDamageEnabled = getgenv().defantiDamageEnabled
     end)
 end
 
