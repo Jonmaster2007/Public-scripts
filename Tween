@@ -93,7 +93,7 @@ getgenv().NormalTweenToPosition = function(targetPos)
             _G.AntiDamageToggle_UI:Set(originalAntiDmg)
         end
     end)
-end  -- 🔥 THIS WAS MISSING
+end
 
 
 _G.ForceNormalTween = function(pos)
@@ -103,6 +103,7 @@ _G.ForceNormalTween = function(pos)
         getgenv().TweenToPosition(pos)
     end
 end
+
 
 getgenv().TweenToPosition = function(targetPos)
     local Players = game:GetService("Players")
@@ -140,20 +141,20 @@ getgenv().TweenToPosition = function(targetPos)
         tween:Play()
         tween.Completed:Wait()
     end
+
     ---------------------------------------------------------
     -- MODE A — NORMAL DIRECT TWEEN (no underground)
     ---------------------------------------------------------
     if not _G.undergroundTweenEnabled then
         getgenv().NormalTweenToPosition(targetPos)
+
     else
     ---------------------------------------------------------
     -- MODE B — ADVANCED UNDERGROUND WITH ZONE AVOIDANCE
     ---------------------------------------------------------
         local startPos = root.Position
 
-        -----------------------------------------------------
-        -- RULE: DETERMINE FIRST DESCENT HEIGHT
-        -----------------------------------------------------
+        -- determine descent Y
         local downY
         if startPos.Y >= 37 then
             downY = 25
@@ -161,22 +162,16 @@ getgenv().TweenToPosition = function(targetPos)
             downY = startPos.Y - 12
         end
 
-        -- Also ensure we are 12 under target at horizontal
         local neededTargetDown = targetPos.Y - 12
         if downY > neededTargetDown then
             downY = neededTargetDown
         end
 
-        -- Main three points
-        local downPos     = Vector3.new(startPos.X, downY, startPos.Z)
+        local downPos = Vector3.new(startPos.X, downY, startPos.Z)
         local horizontalY = downY
-        local upPos       = targetPos
+        local upPos = targetPos
 
-        -----------------------------------------------------
-        -- ZONE CHECK — Determine if direct horizontal path intersects zone
-        -----------------------------------------------------
         local function segmentIntersectsZone(a, b)
-            -- Line segment vs AABB intersection test (3D)
             local dir = b - a
             local tMin = 0
             local tMax = 1
@@ -208,68 +203,31 @@ getgenv().TweenToPosition = function(targetPos)
                 axisCheck("Z", ZoneMin.Z - PADDING, ZoneMax.Z + PADDING)
         end
 
-
-        -- HORIZONTAL POINTS for PATH OPTIONS
-        local leftX  = ZoneMin.X - PADDING  
-        local rightX = ZoneMax.X + PADDING 
-        local underY = ZoneMin.Y - PADDING 
-
-        local leftPathPos1  = Vector3.new(leftX,  horizontalY, startPos.Z)
-        local leftPathPos2  = Vector3.new(leftX,  horizontalY, targetPos.Z)
-
-        local rightPathPos1 = Vector3.new(rightX, horizontalY, startPos.Z)
-        local rightPathPos2 = Vector3.new(rightX, horizontalY, targetPos.Z)
-
-        local underPathY = underY
-        local underPos1  = Vector3.new(startPos.X, underPathY, startPos.Z)
-        local underPos2  = Vector3.new(targetPos.X, underPathY, targetPos.Z)
-
-        -----------------------------------------------------
-        -- If horizontal path intersects zone → ALWAYS go under
-        -----------------------------------------------------
         local horizStart = downPos
         local horizEnd   = Vector3.new(targetPos.X, horizontalY, targetPos.Z)
 
         local horizontalHitsZone =
             segmentIntersectsZone(horizStart, horizEnd)
 
-        local best = "straight"
-
-        if horizontalHitsZone and not pointInsideZone(targetPos) then
-            best = "underZone"  -- override everything
-        end
-
-
-        -----------------------------------------------------
-        -- EXECUTE PATH
-        -----------------------------------------------------
-
-        -- DOWN
         doTween(downPos)
 
-        if best == "underZone" then
-            -- Force path to bottom of zone - 10
+        if horizontalHitsZone and not pointInsideZone(targetPos) then
+            -- goes fully under zone
             local safeY = ZoneMin.Y - 10
-
-            local under1 = Vector3.new(startPos.X, safeY, startPos.Z)
-            local under2 = Vector3.new(targetPos.X, safeY, targetPos.Z)
-
-            doTween(under1)
-            doTween(under2)
-
+            doTween(Vector3.new(startPos.X, safeY, startPos.Z))
+            doTween(Vector3.new(targetPos.X, safeY, targetPos.Z))
         else
-            -- Normal horizontal
+            -- safe straight horizontal
             doTween(Vector3.new(targetPos.X, horizontalY, targetPos.Z))
         end
 
-        -- UP
         doTween(upPos)
     end
 
     -- Restore both protections & UI after tween
     task.delay(1, function()
         getgenv().blockRagdoll = originalRagdoll
-        getgenv().antiDamageEnabled = originalAntiDmg
+        getgenv().antiDamageEnabled = originalAntiDmg  -- FIXED
 
         if _G.RagdollToggle_UI then
             _G.RagdollToggle_UI:Set(originalRagdoll)
