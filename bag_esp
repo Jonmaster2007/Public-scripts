@@ -52,27 +52,60 @@ getgenv().cleanupBagESP = function()
 end
 
 -- GET ITEM INFO
+getgenv().bagShowAllItems = getgenv().bagShowAllItems or false
+getgenv().lightGrey = Color3.fromRGB(200, 200, 200)
+
 getgenv().getItemInfo = function(mesh)
     local lootTable = mesh:FindFirstChild("LootTable")
-    local labels, colors, isImportant = {}, {}, false
+    local importantLabels = {}
+    local importantColors = {}
+    local extraLabels = {}
+    local extraColors = {}
+
+    local isImportant = false
 
     if lootTable then
         for _, item in ipairs(lootTable:GetChildren()) do
-            if getgenv().defaultImportantItems[item.Name] and not getgenv().ignoredItems[item.Name] then
-                table.insert(labels, item.Name)
-                colors[item.Name] = getgenv().defaultImportantItems[item.Name]
-                isImportant = true
+            local itemName = item.Name
+
+            -- Ignore items
+            if not getgenv().ignoredItems[itemName] then
+
+                -- Important defined item
+                if getgenv().defaultImportantItems[itemName] then
+                    table.insert(importantLabels, itemName)
+                    importantColors[itemName] = getgenv().defaultImportantItems[itemName]
+                    isImportant = true
+
+                -- Extra items (shown only when toggle enabled)
+                elseif getgenv().bagShowAllItems then
+                    table.insert(extraLabels, itemName)
+                    extraColors[itemName] = getgenv().lightGrey
+                end
             end
         end
     end
-
-    if #labels == 0 and getgenv().showBagText then
-        table.insert(labels, "Bag")
-        colors["Bag"] = Color3.new(1, 1, 1)
+    
+    -- If nothing important + showBagText -> display "Bag"
+    if #importantLabels == 0 and #extraLabels == 0 and getgenv().showBagText then
+        table.insert(importantLabels, "Bag")
+        importantColors["Bag"] = Color3.new(1, 1, 1)
     end
 
-    return labels, colors, isImportant
+    -- Combine lists: Extra items FIRST, important items LAST
+    local finalLabels = {}
+
+    for _, v in ipairs(extraLabels) do table.insert(finalLabels, v) end
+    for _, v in ipairs(importantLabels) do table.insert(finalLabels, v) end
+
+    -- Merge colors
+    local finalColors = {}
+    for k, v in pairs(extraColors) do finalColors[k] = v end
+    for k, v in pairs(importantColors) do finalColors[k] = v end
+
+    return finalLabels, finalColors, isImportant
 end
+
 
 -- CREATE BILLBOARD GUI
 getgenv().createBillboardGui = function(labels, colors, adornee, isImportant)
