@@ -93,6 +93,7 @@ getgenv().NormalTweenToPosition = function(targetPos)
             _G.AntiDamageToggle_UI:Set(originalAntiDmg)
         end
     end)
+end  -- 🔥 THIS WAS MISSING
 
 
 _G.ForceNormalTween = function(pos)
@@ -139,7 +140,6 @@ getgenv().TweenToPosition = function(targetPos)
         tween:Play()
         tween.Completed:Wait()
     end
-
     ---------------------------------------------------------
     -- MODE A — NORMAL DIRECT TWEEN (no underground)
     ---------------------------------------------------------
@@ -269,18 +269,18 @@ getgenv().TweenToPosition = function(targetPos)
     -- Restore both protections & UI after tween
     task.delay(1, function()
         getgenv().blockRagdoll = originalRagdoll
-        getgenv().antiDamageEnabled = originalDamage
+        getgenv().antiDamageEnabled = originalAntiDmg
 
         if _G.RagdollToggle_UI then
             _G.RagdollToggle_UI:Set(originalRagdoll)
         end
 
         if _G.AntiDamageToggle_UI then
-            _G.AntiDamageToggle_UI:Set(originalDamage)
+            _G.AntiDamageToggle_UI:Set(originalAntiDmg)
         end
     end)
-
 end
+
 
 
 
