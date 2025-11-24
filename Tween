@@ -60,6 +60,13 @@ getgenv().NormalTweenToPosition = function(targetPos)
     getgenv().blockRagdoll = true
     getgenv().antiDamageEnabled = true
 
+    -- UI sync
+    if _G.RagdollToggle_UI then
+        _G.RagdollToggle_UI:Set(true)
+    end
+    if _G.AntiDamageToggle_UI then
+        _G.AntiDamageToggle_UI:Set(true)
+    end
 
     local dist = (targetPos - root.Position).Magnitude
     local duration = math.clamp(dist * (1/150), 0.1, 10)
@@ -249,11 +256,20 @@ getgenv().TweenToPosition = function(targetPos)
         doTween(upPos)
     end
 
-    -- Restore protection 1 sec later
+    -- Restore both protections & UI after tween
     task.delay(1, function()
         getgenv().blockRagdoll = originalRagdoll
-        getgenv().antiDamageEnabled = originalAntiDmg
+        getgenv().antiDamageEnabled = originalDamage
+
+        if _G.RagdollToggle_UI then
+            _G.RagdollToggle_UI:Set(originalRagdoll)
+        end
+
+        if _G.AntiDamageToggle_UI then
+            _G.AntiDamageToggle_UI:Set(originalDamage)
+        end
     end)
+
 end
 
 
