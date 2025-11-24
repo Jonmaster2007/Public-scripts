@@ -92,17 +92,20 @@ getgenv().NormalTweenToPosition = function(targetPos)
 
     if typeof(targetPos) ~= "Vector3" then return end
 
-    -- BEGIN: save original on first tween and enable protections
+    -- BEGIN: Save original shadow states and force protections ON
     if getgenv()._tweenActiveCount == 0 then
         getgenv()._savedOriginal = {
-            ragdoll = getgenv().blockRagdoll,
-            anti = getgenv().antiDamageEnabled
+            ragdoll = getgenv().Shadow_NoRagdoll,      -- Restore to shadow ragdoll
+            anti    = getgenv().Shadow_AntiDamage     -- Restore to shadow anti-damage
         }
     end
 
-    getgenv()._tweenActiveCount = getgenv()._tweenActiveCount + 1
+    getgenv()._tweenActiveCount += 1
+
+    -- FORCE protections ON during tween
     getgenv().blockRagdoll = true
     getgenv().antiDamageEnabled = true
+
 
     -- perform single straight tween
     local dist = (targetPos - root.Position).Magnitude
@@ -116,7 +119,7 @@ getgenv().NormalTweenToPosition = function(targetPos)
     tween:Play()
     tween.Completed:Wait()
 
-    -- END: schedule restore if this is the last finishing tween
+    -- END: schedule restore for this tween
     local thisFinish = tick()
     getgenv()._lastTweenFinish = thisFinish
 
@@ -127,6 +130,7 @@ getgenv().NormalTweenToPosition = function(targetPos)
         if getgenv()._tweenActiveCount == 0 then
             local saved = getgenv()._savedOriginal
             if saved then
+                -- RESTORE TO SHADOW TOGGLES, NOT UI
                 getgenv().blockRagdoll = saved.ragdoll
                 getgenv().antiDamageEnabled = saved.anti
             end
@@ -162,17 +166,20 @@ getgenv().TweenToPosition = function(targetPos)
 
     if typeof(targetPos) ~= "Vector3" then return end
 
-    -- BEGIN: save original on first tween and enable protections
+    -- BEGIN: Save original shadow states and force protections ON
     if getgenv()._tweenActiveCount == 0 then
         getgenv()._savedOriginal = {
-            ragdoll = getgenv().blockRagdoll,
-            anti = getgenv().antiDamageEnabled
+            ragdoll = getgenv().Shadow_NoRagdoll,      -- Restore to shadow ragdoll
+            anti    = getgenv().Shadow_AntiDamage     -- Restore to shadow anti-damage
         }
     end
 
-    getgenv()._tweenActiveCount = getgenv()._tweenActiveCount + 1
+    getgenv()._tweenActiveCount += 1
+
+    -- FORCE protections ON during tween
     getgenv().blockRagdoll = true
     getgenv().antiDamageEnabled = true
+
 
     -- small helper to tween the HRP to a goal position
     local function doTween(goalPos)
@@ -225,7 +232,7 @@ getgenv().TweenToPosition = function(targetPos)
         doTween(targetPos)
     end
 
-    -- END: schedule restore for this tween finish
+    -- END: schedule restore for this tween
     local thisFinish = tick()
     getgenv()._lastTweenFinish = thisFinish
 
@@ -236,6 +243,7 @@ getgenv().TweenToPosition = function(targetPos)
         if getgenv()._tweenActiveCount == 0 then
             local saved = getgenv()._savedOriginal
             if saved then
+                -- RESTORE TO SHADOW TOGGLES, NOT UI
                 getgenv().blockRagdoll = saved.ragdoll
                 getgenv().antiDamageEnabled = saved.anti
             end
