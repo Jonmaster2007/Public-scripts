@@ -1,6 +1,6 @@
 -- =====================================================
 --  UNIVERSAL WAYPOINT TWEEN FUNCTION (Safe Tween)  <-- Paste/replace this whole section
---  ✔ FULL 3D MOVEMENT (no more forced horizontal)
+--  ✔ FULL 3D MOVEMENT (no more  horizontal)
 -- =====================================================
 
 getgenv()._tweenActiveCount = getgenv()._tweenActiveCount or 0
