@@ -94,11 +94,16 @@ getgenv().NormalTweenToPosition = function(targetPos)
 
     -- BEGIN: Save original shadow states and force protections ON
     if getgenv()._tweenActiveCount == 0 then
+        print("=== SAVING ORIGINAL SHADOW VALUES ===")
+        print("Shadow_NoRagdoll:", getgenv().Shadow_NoRagdoll)
+        print("Shadow_AntiDamage:", getgenv().Shadow_AntiDamage)
+
         getgenv()._savedOriginal = {
-            ragdoll = getgenv().Shadow_NoRagdoll,      -- Restore to shadow ragdoll
-            anti    = getgenv().Shadow_AntiDamage     -- Restore to shadow anti-damage
+            ragdoll = getgenv().Shadow_NoRagdoll,
+            anti    = getgenv().Shadow_AntiDamage
         }
     end
+
 
     getgenv()._tweenActiveCount += 1
 
@@ -130,10 +135,14 @@ getgenv().NormalTweenToPosition = function(targetPos)
         if getgenv()._tweenActiveCount == 0 then
             local saved = getgenv()._savedOriginal
             if saved then
-                -- RESTORE TO SHADOW TOGGLES, NOT UI
+                print("=== RESTORING VALUES ===")
+                print("Restoring ragdoll ->", saved.ragdoll)
+                print("Restoring anti    ->", saved.anti)
+
                 getgenv().blockRagdoll = saved.ragdoll
                 getgenv().antiDamageEnabled = saved.anti
             end
+
             getgenv()._savedOriginal = nil
         end
     end)
