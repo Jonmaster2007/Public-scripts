@@ -92,22 +92,18 @@ getgenv().NormalTweenToPosition = function(targetPos)
 
     if typeof(targetPos) ~= "Vector3" then return end
 
-    -- BEGIN TWEEN
+    -- BEGIN: save original on first tween and enable protections
     if getgenv()._tweenActiveCount == 0 then
-        -- first tween → capture real original values
         getgenv()._savedOriginal = {
             ragdoll = getgenv().blockRagdoll,
             anti = getgenv().antiDamageEnabled
         }
     end
 
-    -- if tweens already active → DO NOT overwrite _savedOriginal
-    getgenv()._tweenActiveCount += 1
-
-    -- override for tween
+    getgenv()._tweenActiveCount = getgenv()._tweenActiveCount + 1
     getgenv().blockRagdoll = true
     getgenv().antiDamageEnabled = true
-    
+
     -- perform single straight tween
     local dist = (targetPos - root.Position).Magnitude
     local duration = math.clamp(dist / 150, 0.1, 10)
@@ -120,16 +116,15 @@ getgenv().NormalTweenToPosition = function(targetPos)
     tween:Play()
     tween.Completed:Wait()
 
-    local thisTween = tick()
-    getgenv()._lastTweenFinish = thisTween
+    -- END: schedule restore if this is the last finishing tween
+    local thisFinish = tick()
+    getgenv()._lastTweenFinish = thisFinish
 
-    task.delay(0.1, function()
-        if getgenv()._lastTweenFinish ~= thisTween then return end
-
-        getgenv()._tweenActiveCount -= 1
+    task.delay(1, function()
+        if getgenv()._lastTweenFinish ~= thisFinish then return end
+        getgenv()._tweenActiveCount = math.max(0, getgenv()._tweenActiveCount - 1)
 
         if getgenv()._tweenActiveCount == 0 then
-            -- restore ONLY ONCE
             local saved = getgenv()._savedOriginal
             if saved then
                 getgenv().blockRagdoll = saved.ragdoll
@@ -138,7 +133,6 @@ getgenv().NormalTweenToPosition = function(targetPos)
             getgenv()._savedOriginal = nil
         end
     end)
-
 end
 
 _G.ForceNormalTween = function(pos)
@@ -168,22 +162,17 @@ getgenv().TweenToPosition = function(targetPos)
 
     if typeof(targetPos) ~= "Vector3" then return end
 
-    -- BEGIN TWEEN
+    -- BEGIN: save original on first tween and enable protections
     if getgenv()._tweenActiveCount == 0 then
-        -- first tween → capture real original values
         getgenv()._savedOriginal = {
             ragdoll = getgenv().blockRagdoll,
             anti = getgenv().antiDamageEnabled
         }
     end
 
-    -- if tweens already active → DO NOT overwrite _savedOriginal
-    getgenv()._tweenActiveCount += 1
-
-    -- override for tween
+    getgenv()._tweenActiveCount = getgenv()._tweenActiveCount + 1
     getgenv().blockRagdoll = true
     getgenv().antiDamageEnabled = true
-
 
     -- small helper to tween the HRP to a goal position
     local function doTween(goalPos)
@@ -237,16 +226,14 @@ getgenv().TweenToPosition = function(targetPos)
     end
 
     -- END: schedule restore for this tween finish
-    local thisTween = tick()
-    getgenv()._lastTweenFinish = thisTween
-    
-    task.delay(0.1, function()
-        if getgenv()._lastTweenFinish ~= thisTween then return end
-    
-        getgenv()._tweenActiveCount -= 1
-    
+    local thisFinish = tick()
+    getgenv()._lastTweenFinish = thisFinish
+
+    task.delay(1, function()
+        if getgenv()._lastTweenFinish ~= thisFinish then return end
+        getgenv()._tweenActiveCount = math.max(0, getgenv()._tweenActiveCount - 1)
+
         if getgenv()._tweenActiveCount == 0 then
-            -- restore ONLY ONCE
             local saved = getgenv()._savedOriginal
             if saved then
                 getgenv().blockRagdoll = saved.ragdoll
@@ -255,7 +242,6 @@ getgenv().TweenToPosition = function(targetPos)
             getgenv()._savedOriginal = nil
         end
     end)
-
 end
 
 
