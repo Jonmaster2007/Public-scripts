@@ -3,9 +3,9 @@
 --  ✔ FULL 3D MOVEMENT (no more  horizontal)
 -- =====================================================
 
+-- active tween counter and saved shadow snapshot
 getgenv()._tweenActiveCount = getgenv()._tweenActiveCount or 0
 getgenv()._savedOriginal = getgenv()._savedOriginal or nil
-getgenv()._lastTweenFinish = getgenv()._lastTweenFinish or 0
 
 _G.undergroundTweenEnabled = (_G.undergroundTweenEnabled == nil) and true or _G.undergroundTweenEnabled
 
@@ -76,6 +76,42 @@ end
 getgenv().antiDamageEnabled = (getgenv().antiDamageEnabled ~= nil) and getgenv().antiDamageEnabled or true
 getgenv().blockRagdoll = (getgenv().blockRagdoll ~= nil) and getgenv().blockRagdoll or false
 
+-- Helper: begin a tween (save shadow snapshot only for the first entering tween)
+local function BeginTweenLock()
+    if getgenv()._tweenActiveCount == 0 then
+        -- snapshot the UI "shadow" toggles (these are permanent UI preferences)
+        getgenv()._savedOriginal = {
+            ragdoll = getgenv().Shadow_NoRagdoll,
+            anti    = getgenv().Shadow_AntiDamage
+        }
+        -- debug print (optional)
+        -- print("[BeginTweenLock] saved:", getgenv()._savedOriginal.ragdoll, getgenv()._savedOriginal.anti)
+    end
+
+    getgenv()._tweenActiveCount = getgenv()._tweenActiveCount + 1
+
+    -- force protections ON while tweening
+    getgenv().blockRagdoll = true
+    getgenv().antiDamageEnabled = true
+end
+
+-- Helper: finish a tween (restore when last tween exits)
+local function EndTweenLock()
+    getgenv()._tweenActiveCount = math.max(0, getgenv()._tweenActiveCount - 1)
+
+    if getgenv()._tweenActiveCount == 0 then
+        local saved = getgenv()._savedOriginal
+        if saved then
+            -- restore real toggles to the shadow (UI) preferences
+            getgenv().blockRagdoll = saved.ragdoll
+            getgenv().antiDamageEnabled = saved.anti
+            -- debug print (optional)
+            -- print("[EndTweenLock] restored:", saved.ragdoll, saved.anti)
+        end
+        getgenv()._savedOriginal = nil
+    end
+end
+
 -- =====================================================
 --  NORMAL TWEEN (safe)
 -- =====================================================
@@ -92,25 +128,8 @@ getgenv().NormalTweenToPosition = function(targetPos)
 
     if typeof(targetPos) ~= "Vector3" then return end
 
-    -- BEGIN: Save original shadow states and force protections ON
-    if getgenv()._tweenActiveCount == 0 then
-        print("=== SAVING ORIGINAL SHADOW VALUES ===")
-        print("Shadow_NoRagdoll:", getgenv().Shadow_NoRagdoll)
-        print("Shadow_AntiDamage:", getgenv().Shadow_AntiDamage)
-
-        getgenv()._savedOriginal = {
-            ragdoll = getgenv().Shadow_NoRagdoll,
-            anti    = getgenv().Shadow_AntiDamage
-        }
-    end
-
-
-    getgenv()._tweenActiveCount += 1
-
-    -- FORCE protections ON during tween
-    getgenv().blockRagdoll = true
-    getgenv().antiDamageEnabled = true
-
+    -- BEGIN: use the lock (snapshot + force)
+    BeginTweenLock()
 
     -- perform single straight tween
     local dist = (targetPos - root.Position).Magnitude
@@ -124,28 +143,8 @@ getgenv().NormalTweenToPosition = function(targetPos)
     tween:Play()
     tween.Completed:Wait()
 
-    -- END: schedule restore for this tween
-    local thisFinish = tick()
-    getgenv()._lastTweenFinish = thisFinish
-
-    task.delay(1, function()
-        if getgenv()._lastTweenFinish ~= thisFinish then return end
-        getgenv()._tweenActiveCount = math.max(0, getgenv()._tweenActiveCount - 1)
-
-        if getgenv()._tweenActiveCount == 0 then
-            local saved = getgenv()._savedOriginal
-            if saved then
-                print("=== RESTORING VALUES ===")
-                print("Restoring ragdoll ->", saved.ragdoll)
-                print("Restoring anti    ->", saved.anti)
-
-                getgenv().blockRagdoll = saved.ragdoll
-                getgenv().antiDamageEnabled = saved.anti
-            end
-
-            getgenv()._savedOriginal = nil
-        end
-    end)
+    -- FINISH: decrement and possibly restore (synchronous)
+    EndTweenLock()
 end
 
 _G.ForceNormalTween = function(pos)
@@ -175,20 +174,8 @@ getgenv().TweenToPosition = function(targetPos)
 
     if typeof(targetPos) ~= "Vector3" then return end
 
-    -- BEGIN: Save original shadow states and force protections ON
-    if getgenv()._tweenActiveCount == 0 then
-        getgenv()._savedOriginal = {
-            ragdoll = getgenv().Shadow_NoRagdoll,      -- Restore to shadow ragdoll
-            anti    = getgenv().Shadow_AntiDamage     -- Restore to shadow anti-damage
-        }
-    end
-
-    getgenv()._tweenActiveCount += 1
-
-    -- FORCE protections ON during tween
-    getgenv().blockRagdoll = true
-    getgenv().antiDamageEnabled = true
-
+    -- BEGIN: use the lock (snapshot + force)
+    BeginTweenLock()
 
     -- small helper to tween the HRP to a goal position
     local function doTween(goalPos)
@@ -207,8 +194,11 @@ getgenv().TweenToPosition = function(targetPos)
     -- MODE A — Normal straight tween
     -------------------------------------------------------------------
     if not _G.undergroundTweenEnabled then
-        -- reuse NormalTweenToPosition (it contains its own safe restore)
+        -- reuse NormalTweenToPosition (it contains its own lock/restore)
         getgenv().NormalTweenToPosition(targetPos)
+        -- Ending the outer BeginTweenLock() happened inside NormalTweenToPosition.
+        -- We must not call EndTweenLock() here because NormalTweenToPosition already decremented.
+        return
     else
     -------------------------------------------------------------------
     -- MODE B — Underground avoidance pathing
@@ -241,25 +231,10 @@ getgenv().TweenToPosition = function(targetPos)
         doTween(targetPos)
     end
 
-    -- END: schedule restore for this tween
-    local thisFinish = tick()
-    getgenv()._lastTweenFinish = thisFinish
-
-    task.delay(1, function()
-        if getgenv()._lastTweenFinish ~= thisFinish then return end
-        getgenv()._tweenActiveCount = math.max(0, getgenv()._tweenActiveCount - 1)
-
-        if getgenv()._tweenActiveCount == 0 then
-            local saved = getgenv()._savedOriginal
-            if saved then
-                -- RESTORE TO SHADOW TOGGLES, NOT UI
-                getgenv().blockRagdoll = saved.ragdoll
-                getgenv().antiDamageEnabled = saved.anti
-            end
-            getgenv()._savedOriginal = nil
-        end
-    end)
+    -- FINISH: decrement and possibly restore (synchronous)
+    EndTweenLock()
 end
+
 
 
 
