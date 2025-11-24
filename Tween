@@ -3,6 +3,8 @@
 --  ✔ FULL 3D MOVEMENT (no more forced horizontal)
 -- =====================================================
 
+getgenv()._pendingRestore = nil
+
 _G.undergroundTweenEnabled = true
 
 -- Forbidden Zone (A and B corners)
@@ -29,6 +31,23 @@ local function pointInsideZone(v)
         v.Y >= ZoneMin.Y and v.Y <= ZoneMax.Y and
         v.Z >= ZoneMin.Z and v.Z <= ZoneMax.Z
     )
+end
+
+local function queueProtectionRestore(originalRagdoll, originalAntiDmg)
+    getgenv()._pendingRestore = {
+        ragdoll = originalRagdoll,
+        anti = originalAntiDmg,
+        time = tick()
+    }
+
+    local thisRestore = getgenv()._pendingRestore
+
+    task.delay(1, function()
+        if getgenv()._pendingRestore == thisRestore then
+            getgenv().blockRagdoll = thisRestore.ragdoll
+            getgenv().antiDamageEnabled = thisRestore.anti
+        end
+    end)
 end
 
 -- Default settings
@@ -60,14 +79,6 @@ getgenv().NormalTweenToPosition = function(targetPos)
     getgenv().blockRagdoll = true
     getgenv().antiDamageEnabled = true
 
-    -- UI sync
-    if _G.RagdollToggle_UI then
-        _G.RagdollToggle_UI:Set(true)
-    end
-    if _G.AntiDamageToggle_UI then
-        _G.AntiDamageToggle_UI:Set(true)
-    end
-
     local dist = (targetPos - root.Position).Magnitude
     local duration = math.clamp(dist * (1/150), 0.1, 10)
 
@@ -79,21 +90,11 @@ getgenv().NormalTweenToPosition = function(targetPos)
     tween:Play()
     tween.Completed:Wait()
 
-    task.delay(1, function()
-        -- restore variables
-        getgenv().blockRagdoll = originalRagdoll
-        getgenv().antiDamageEnabled = originalAntiDmg
+    queueProtectionRestore(originalRagdoll, originalAntiDmg)
 
-        -- restore UI
-        if _G.RagdollToggle_UI then
-            _G.RagdollToggle_UI:Set(originalRagdoll)
-        end
-
-        if _G.AntiDamageToggle_UI then
-            _G.AntiDamageToggle_UI:Set(originalAntiDmg)
-        end
-    end)
 end
+
+
 
 
 _G.ForceNormalTween = function(pos)
@@ -225,18 +226,8 @@ getgenv().TweenToPosition = function(targetPos)
     end
 
     -- Restore both protections & UI after tween
-    task.delay(1, function()
-        getgenv().blockRagdoll = originalRagdoll
-        getgenv().antiDamageEnabled = originalAntiDmg  -- FIXED
+    queueProtectionRestore(originalRagdoll, originalAntiDmg)
 
-        if _G.RagdollToggle_UI then
-            _G.RagdollToggle_UI:Set(originalRagdoll)
-        end
-
-        if _G.AntiDamageToggle_UI then
-            _G.AntiDamageToggle_UI:Set(originalAntiDmg)
-        end
-    end)
 end
 
 
