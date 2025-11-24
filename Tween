@@ -80,10 +80,20 @@ getgenv().NormalTweenToPosition = function(targetPos)
     tween.Completed:Wait()
 
     task.delay(1, function()
+        -- restore variables
         getgenv().blockRagdoll = originalRagdoll
         getgenv().antiDamageEnabled = originalAntiDmg
+
+        -- restore UI
+        if _G.RagdollToggle_UI then
+            _G.RagdollToggle_UI:Set(originalRagdoll)
+        end
+
+        if _G.AntiDamageToggle_UI then
+            _G.AntiDamageToggle_UI:Set(originalAntiDmg)
+        end
     end)
-end
+
 
 _G.ForceNormalTween = function(pos)
     if getgenv().NormalTweenToPosition then
