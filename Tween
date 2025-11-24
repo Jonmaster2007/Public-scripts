@@ -1,11 +1,55 @@
 -- =====================================================
---  UNIVERSAL WAYPOINT TWEEN FUNCTION (Safe Tween)  <-- Paste/replace this whole section
---  ✔ FULL 3D MOVEMENT (no more forced horizontal)
+--  UNIVERSAL WAYPOINT TWEEN FUNCTION (Safe Tween)
+--  ✔ FULL 3D MOVEMENT
+--  ✔ Fixed toggle restore system
+-- =====================================================
+
+-- =====================================================
+--  FIXED RESTORE MANAGER  (do NOT modify)
 -- =====================================================
 
 getgenv()._tweenActiveCount = getgenv()._tweenActiveCount or 0
 getgenv()._savedOriginal = getgenv()._savedOriginal or nil
-getgenv()._lastTweenFinish = getgenv()._lastTweenFinish or 0
+getgenv()._lastTweenStamp = getgenv()._lastTweenStamp or 0
+
+local function BeginTweenState()
+    if getgenv()._tweenActiveCount == 0 then
+        getgenv()._savedOriginal = {
+            ragdoll = getgenv().blockRagdoll,
+            anti = getgenv().antiDamageEnabled
+        }
+    end
+
+    getgenv()._tweenActiveCount += 1
+
+    -- override always during tween
+    getgenv().blockRagdoll = true
+    getgenv().antiDamageEnabled = true
+end
+
+local function FinishTweenState()
+    local stamp = tick()
+    getgenv()._lastTweenStamp = stamp
+
+    task.delay(0.05, function()
+        if getgenv()._lastTweenStamp ~= stamp then return end
+
+        getgenv()._tweenActiveCount -= 1
+
+        if getgenv()._tweenActiveCount == 0 then
+            local saved = getgenv()._savedOriginal
+            if saved then
+                getgenv().blockRagdoll = saved.ragdoll
+                getgenv().antiDamageEnabled = saved.anti
+            end
+            getgenv()._savedOriginal = nil
+        end
+    end)
+end
+
+getgenv().BeginTweenState = BeginTweenState
+getgenv().FinishTweenState = FinishTweenState
+
 
 _G.undergroundTweenEnabled = (_G.undergroundTweenEnabled == nil) and true or _G.undergroundTweenEnabled
 
@@ -25,7 +69,7 @@ local ZoneMax = Vector3.new(
     math.max(ZoneA.Z, ZoneB.Z)
 )
 
-local PADDING = 4 -- studs
+local PADDING = 4
 
 local function pointInsideZone(v)
     return (
@@ -35,7 +79,6 @@ local function pointInsideZone(v)
     )
 end
 
--- robust segment-vs-AABB check used by underground logic (standalone here)
 local function segmentIntersectsZone(a, b)
     local dir = b - a
     local tMin, tMax = 0, 1
@@ -64,15 +107,17 @@ local function segmentIntersectsZone(a, b)
     local ok
     ok, tMin, tMax = axisCheck(a.X, dir.X, ZoneMin.X - PADDING, ZoneMax.X + PADDING)
     if not ok then return false end
+
     ok, tMin, tMax = axisCheck(a.Y, dir.Y, ZoneMin.Y - PADDING, ZoneMax.Y + PADDING)
     if not ok then return false end
+
     ok, tMin, tMax = axisCheck(a.Z, dir.Z, ZoneMin.Z - PADDING, ZoneMax.Z + PADDING)
     if not ok then return false end
 
     return true
 end
 
--- Default settings (do not overwrite if already set)
+-- Default settings
 getgenv().antiDamageEnabled = (getgenv().antiDamageEnabled ~= nil) and getgenv().antiDamageEnabled or true
 getgenv().blockRagdoll = (getgenv().blockRagdoll ~= nil) and getgenv().blockRagdoll or false
 
@@ -87,28 +132,14 @@ getgenv().NormalTweenToPosition = function(targetPos)
 
     local char = player.Character
     if not char then return end
+
     local root = char:FindFirstChild("HumanoidRootPart")
     if not root then return end
 
     if typeof(targetPos) ~= "Vector3" then return end
 
-    -- BEGIN TWEEN
-    if getgenv()._tweenActiveCount == 0 then
-        -- first tween → capture real original values
-        getgenv()._savedOriginal = {
-            ragdoll = getgenv().blockRagdoll,
-            anti = getgenv().antiDamageEnabled
-        }
-    end
+    getgenv().BeginTweenState()
 
-    -- if tweens already active → DO NOT overwrite _savedOriginal
-    getgenv()._tweenActiveCount += 1
-
-    -- override for tween
-    getgenv().blockRagdoll = true
-    getgenv().antiDamageEnabled = true
-    
-    -- perform single straight tween
     local dist = (targetPos - root.Position).Magnitude
     local duration = math.clamp(dist / 150, 0.1, 10)
 
@@ -117,37 +148,18 @@ getgenv().NormalTweenToPosition = function(targetPos)
         TweenInfo.new(duration, Enum.EasingStyle.Linear),
         {CFrame = CFrame.new(targetPos)}
     )
+
     tween:Play()
     tween.Completed:Wait()
 
-    local thisTween = tick()
-    getgenv()._lastTweenFinish = thisTween
-
-    task.delay(0.1, function()
-        if getgenv()._lastTweenFinish ~= thisTween then return end
-
-        getgenv()._tweenActiveCount -= 1
-
-        if getgenv()._tweenActiveCount == 0 then
-            -- restore ONLY ONCE
-            local saved = getgenv()._savedOriginal
-            if saved then
-                getgenv().blockRagdoll = saved.ragdoll
-                getgenv().antiDamageEnabled = saved.anti
-            end
-            getgenv()._savedOriginal = nil
-        end
-    end)
-
+    getgenv().FinishTweenState()
 end
 
 _G.ForceNormalTween = function(pos)
     if getgenv().NormalTweenToPosition then
         getgenv().NormalTweenToPosition(pos)
-    else
-        if getgenv().TweenToPosition then
-            getgenv().TweenToPosition(pos)
-        end
+    elseif getgenv().TweenToPosition then
+        getgenv().TweenToPosition(pos)
     end
 end
 
@@ -168,24 +180,8 @@ getgenv().TweenToPosition = function(targetPos)
 
     if typeof(targetPos) ~= "Vector3" then return end
 
-    -- BEGIN TWEEN
-    if getgenv()._tweenActiveCount == 0 then
-        -- first tween → capture real original values
-        getgenv()._savedOriginal = {
-            ragdoll = getgenv().blockRagdoll,
-            anti = getgenv().antiDamageEnabled
-        }
-    end
+    getgenv().BeginTweenState()
 
-    -- if tweens already active → DO NOT overwrite _savedOriginal
-    getgenv()._tweenActiveCount += 1
-
-    -- override for tween
-    getgenv().blockRagdoll = true
-    getgenv().antiDamageEnabled = true
-
-
-    -- small helper to tween the HRP to a goal position
     local function doTween(goalPos)
         local dist = (goalPos - root.Position).Magnitude
         local t = math.clamp(dist / 150, 0.1, 10)
@@ -198,65 +194,42 @@ getgenv().TweenToPosition = function(targetPos)
         tween.Completed:Wait()
     end
 
-    -------------------------------------------------------------------
-    -- MODE A — Normal straight tween
-    -------------------------------------------------------------------
     if not _G.undergroundTweenEnabled then
-        -- reuse NormalTweenToPosition (it contains its own safe restore)
         getgenv().NormalTweenToPosition(targetPos)
-    else
-    -------------------------------------------------------------------
-    -- MODE B — Underground avoidance pathing
-    -------------------------------------------------------------------
-        local startPos = root.Position
-
-        local downY = (startPos.Y >= 37) and 25 or (startPos.Y - 12)
-        local neededTargetDown = targetPos.Y - 12
-        if downY > neededTargetDown then
-            downY = neededTargetDown
-        end
-
-        local downPos = Vector3.new(startPos.X, downY, startPos.Z)
-        doTween(downPos)
-
-        local horizontalY = downY
-        local horizStart = downPos
-        local horizEnd = Vector3.new(targetPos.X, horizontalY, targetPos.Z)
-
-        local horizontalHitsZone = segmentIntersectsZone(horizStart, horizEnd)
-
-        if horizontalHitsZone and not pointInsideZone(targetPos) then
-            local safeY = ZoneMin.Y - 10
-            doTween(Vector3.new(startPos.X, safeY, startPos.Z))
-            doTween(Vector3.new(targetPos.X, safeY, targetPos.Z))
-        else
-            doTween(Vector3.new(targetPos.X, horizontalY, targetPos.Z))
-        end
-
-        doTween(targetPos)
+        getgenv().FinishTweenState()
+        return
     end
 
-    -- END: schedule restore for this tween finish
-    local thisTween = tick()
-    getgenv()._lastTweenFinish = thisTween
-    
-    task.delay(0.1, function()
-        if getgenv()._lastTweenFinish ~= thisTween then return end
-    
-        getgenv()._tweenActiveCount -= 1
-    
-        if getgenv()._tweenActiveCount == 0 then
-            -- restore ONLY ONCE
-            local saved = getgenv()._savedOriginal
-            if saved then
-                getgenv().blockRagdoll = saved.ragdoll
-                getgenv().antiDamageEnabled = saved.anti
-            end
-            getgenv()._savedOriginal = nil
-        end
-    end)
+    local startPos = root.Position
 
+    local downY = (startPos.Y >= 37) and 25 or (startPos.Y - 12)
+    local neededTargetDown = targetPos.Y - 12
+    if downY > neededTargetDown then
+        downY = neededTargetDown
+    end
+
+    local downPos = Vector3.new(startPos.X, downY, startPos.Z)
+    doTween(downPos)
+
+    local horizontalY = downY
+    local horizStart = downPos
+    local horizEnd = Vector3.new(targetPos.X, horizontalY, targetPos.Z)
+
+    local horizontalHitsZone = segmentIntersectsZone(horizStart, horizEnd)
+
+    if horizontalHitsZone and not pointInsideZone(targetPos) then
+        local safeY = ZoneMin.Y - 10
+        doTween(Vector3.new(startPos.X, safeY, startPos.Z))
+        doTween(Vector3.new(targetPos.X, safeY, targetPos.Z))
+    else
+        doTween(Vector3.new(targetPos.X, horizontalY, targetPos.Z))
+    end
+
+    doTween(targetPos)
+
+    getgenv().FinishTweenState()
 end
+
 
 
 
