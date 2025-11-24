@@ -39,10 +39,6 @@ getgenv().blockRagdoll = (getgenv().blockRagdoll ~= nil) and getgenv().blockRagd
 --  ADVANCED TWEEN SYSTEM WITH PATHFIND AROUND ZONE
 -- =====================================================
 
--- =====================================================
--- NORMAL TWEEN (used when force-normal or underground toggled OFF)
--- =====================================================
-
 getgenv().NormalTweenToPosition = function(targetPos)
     local Players = game:GetService("Players")
     local TweenService = game:GetService("TweenService")
@@ -56,11 +52,14 @@ getgenv().NormalTweenToPosition = function(targetPos)
 
     if typeof(targetPos) ~= "Vector3" then return end
 
-    local oldRagdoll = getgenv().blockRagdoll
-    local oldAnti = getgenv().antiDamageEnabled
+    -- Save original settings BEFORE modifying them
+    local originalRagdoll = getgenv().blockRagdoll
+    local originalAntiDmg = getgenv().antiDamageEnabled    
 
+    -- Force protection ON during tween
     getgenv().blockRagdoll = true
     getgenv().antiDamageEnabled = true
+
 
     local dist = (targetPos - root.Position).Magnitude
     local duration = math.clamp(dist * (1/150), 0.1, 10)
@@ -74,8 +73,8 @@ getgenv().NormalTweenToPosition = function(targetPos)
     tween.Completed:Wait()
 
     task.delay(1, function()
-        getgenv().blockRagdoll = oldRagdoll
-        getgenv().antiDamageEnabled = oldAnti
+        getgenv().blockRagdoll = originalRagdoll
+        getgenv().antiDamageEnabled = originalAntiDmg
     end)
 end
 
