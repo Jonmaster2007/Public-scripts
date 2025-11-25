@@ -1,6 +1,9 @@
-------------------------------
--- Unified Fly + Noclip System
-------------------------------
+---------------------------------------------------------------
+-- Unified Noclip + Flight Controller
+-- Exported functions:
+--   getgenv().toggleFlight()
+--   getgenv().toggleNoclip()
+---------------------------------------------------------------
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -12,18 +15,25 @@ local character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
 local humanoid = character:WaitForChild("Humanoid")
 local root = character:WaitForChild("HumanoidRootPart")
 
-------------------------------------------------------
--- STATE
-------------------------------------------------------
+---------------------------------------------------------------
+-- STATES
+---------------------------------------------------------------
 getgenv().Flying = false
-getgenv().Noclipping = false
+getgenv().NoclipActive = false
 
--- movement directions
-local dir = {w=false, s=false, a=false, d=false, up=false, down=false}
+-- movement directions for flight
+getgenv().direction = getgenv().direction or {
+    forward = false,
+    backward = false,
+    left = false,
+    right = false,
+    up = false,
+    down = false
+}
 
-------------------------------------------------------
+---------------------------------------------------------------
 -- FLY BODY OBJECTS
-------------------------------------------------------
+---------------------------------------------------------------
 local bv = Instance.new("BodyVelocity")
 bv.MaxForce = Vector3.new(1e6, 1e6, 1e6)
 bv.Velocity = Vector3.zero
@@ -38,35 +48,42 @@ local accel = 10
 local decel = 6
 local currentSpeed = flySpeed
 
-------------------------------------------------------
--- UNIFIED LOOP
-------------------------------------------------------
+---------------------------------------------------------------
+-- CHARACTER RESET
+---------------------------------------------------------------
+LocalPlayer.CharacterAdded:Connect(function(char)
+    character = char
+    humanoid = char:WaitForChild("Humanoid")
+    root = char:WaitForChild("HumanoidRootPart")
+end)
+
+---------------------------------------------------------------
+-- UNIFIED MOVEMENT LOOP (FLY + NOCLIP)
+---------------------------------------------------------------
 RunService.RenderStepped:Connect(function()
 
-    character = LocalPlayer.Character
-    if not character then return end
-    root = character:FindFirstChild("HumanoidRootPart")
-    humanoid = character:FindFirstChild("Humanoid")
-    if not root or not humanoid then return end
+    if not character or not root or not humanoid then return end
 
-    ----------------------------
-    -- FLY MODE
-    ----------------------------
+    ----------------------
+    -- FLIGHT
+    ----------------------
     if getgenv().Flying then
-        humanoid.PlatformStand = true
         
+        humanoid.PlatformStand = true
+
         bv.Parent = root
         bg.Parent = root
 
         local cam = Workspace.CurrentCamera
         local move = Vector3.zero
+        local d = getgenv().direction
 
-        if dir.w then move += cam.CFrame.LookVector end
-        if dir.s then move -= cam.CFrame.LookVector end
-        if dir.a then move -= cam.CFrame.RightVector end
-        if dir.d then move += cam.CFrame.RightVector end
-        if dir.up then move += cam.CFrame.UpVector end
-        if dir.down then move -= cam.CFrame.UpVector end
+        if d.forward then move += cam.CFrame.LookVector end
+        if d.backward then move -= cam.CFrame.LookVector end
+        if d.left then move -= cam.CFrame.RightVector end
+        if d.right then move += cam.CFrame.RightVector end
+        if d.up then move += cam.CFrame.UpVector end
+        if d.down then move -= cam.CFrame.UpVector end
 
         if move.Magnitude > 0 then
             currentSpeed = math.min(currentSpeed + accel, maxSpeed)
@@ -77,58 +94,36 @@ RunService.RenderStepped:Connect(function()
         end
 
         bg.CFrame = cam.CFrame
-        
+
     else
-        -- disable fly
         humanoid.PlatformStand = false
         bv.Parent = nil
         bg.Parent = nil
         bv.Velocity = Vector3.zero
     end
 
-    ----------------------------
-    -- NOCLIP MODE
-    ----------------------------
-    if getgenv().Noclipping then
-        for _, p in ipairs(character:GetDescendants()) do
-            if p:IsA("BasePart") and p.Name ~= "HumanoidRootPart" then
-                p.CanCollide = false
+    ----------------------
+    -- NOCLIP
+    ----------------------
+    if getgenv().NoclipActive then
+        for _, part in ipairs(character:GetDescendants()) do
+            if part:IsA("BasePart") and part.Name ~= "HumanoidRootPart" then
+                part.CanCollide = false
             end
         end
     end
-
 end)
 
-------------------------------------------------------
--- TOGGLE FUNCTIONS
-------------------------------------------------------
-getgenv().ToggleFly = function()
+---------------------------------------------------------------
+-- PUBLIC FUNCTIONS
+---------------------------------------------------------------
+getgenv().toggleFlight = function()
     getgenv().Flying = not getgenv().Flying
     currentSpeed = flySpeed
 end
 
-getgenv().ToggleNoclip = function()
-    getgenv().Noclipping = not getgenv().Noclipping
+getgenv().toggleNoclip = function()
+    getgenv().NoclipActive = not getgenv().NoclipActive
 end
 
-------------------------------------------------------
--- INPUT HANDLING
-------------------------------------------------------
-UserInputService.InputBegan:Connect(function(i, gp)
-    if gp then return end
-    if i.KeyCode == Enum.KeyCode.W then dir.w = true end
-    if i.KeyCode == Enum.KeyCode.S then dir.s = true end
-    if i.KeyCode == Enum.KeyCode.A then dir.a = true end
-    if i.KeyCode == Enum.KeyCode.D then dir.d = true end
-    if i.KeyCode == Enum.KeyCode.Space then dir.up = true end
-    if i.KeyCode == Enum.KeyCode.LeftControl then dir.down = true end
-end)
-
-UserInputService.InputEnded:Connect(function(i)
-    if i.KeyCode == Enum.KeyCode.W then dir.w = false end
-    if i.KeyCode == Enum.KeyCode.S then dir.s = false end
-    if i.KeyCode == Enum.KeyCode.A then dir.a = false end
-    if i.KeyCode == Enum.KeyCode.D then dir.d = false end
-    if i.KeyCode == Enum.KeyCode.Space then dir.up = false end
-    if i.KeyCode == Enum.KeyCode.LeftControl then dir.down = false end
-end)
+return true
