@@ -109,16 +109,16 @@ RunService.RenderStepped:Connect(function()
 end)
 
 ---------------------------------------------------------------
--- TRUE ORIGINAL NOCLIP (EXACT BEHAVIOR CLONE)
+-- TRUE ORIGINAL NOCLIP — FIXED WITH LIVE CHARACTER REFERENCE
 ---------------------------------------------------------------
 local Clip = true
 local Noclipping = nil
 local floatName = "HumanoidRootPart"
 
--- IMPORTANT: identical structure to working version
-function NoclipLoop()
-    if Clip == false and character ~= nil then
-        for _, child in pairs(character:GetDescendants()) do
+local function NoclipLoop()
+    local char = LocalPlayer.Character  -- LIVE reference (critical)
+    if Clip == false and char ~= nil then
+        for _, child in pairs(char:GetDescendants()) do
             if child:IsA("BasePart")
                 and child.CanCollide == true
                 and child.Name ~= floatName then
@@ -129,19 +129,18 @@ function NoclipLoop()
     end
 end
 
--- This EXACT behavior must be preserved
 getgenv().toggleNoclip = function()
     Clip = not Clip
 
     if Clip == false then
-        task.wait(0.1) -- THIS TIMING IS CRITICAL
+        task.wait(0.1) -- required timing
 
         if Noclipping then
             Noclipping:Disconnect()
         end
 
         Noclipping = RunService.Stepped:Connect(NoclipLoop)
-        NoclipLoop() -- instant apply
+        NoclipLoop()
 
     else
         if Noclipping then
@@ -150,6 +149,16 @@ getgenv().toggleNoclip = function()
         Noclipping = nil
     end
 end
+
+-- Respawn support
+LocalPlayer.CharacterAdded:Connect(function(char)
+    task.wait(0.2)
+    if Clip == false then
+        if Noclipping then Noclipping:Disconnect() end
+        Noclipping = RunService.Stepped:Connect(NoclipLoop)
+    end
+end)
+
 
 ---------------------------------------------------------------
 -- PUBLIC FLIGHT TOGGLER
