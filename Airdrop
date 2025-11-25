@@ -1,12 +1,12 @@
 ---------------------------
--- Airdrop + DroneLoot ESP
+-- Airdrop + DroneLoot ESP (FIXED)
 ---------------------------
 
 local Players = game:GetService("Players")
 local player = Players.LocalPlayer
 local playerGui = player:WaitForChild("PlayerGui")
 
-local billboards = {} -- [instance] = BillboardGui
+local billboards = {} -- [model] = BillboardGui
 local running = false
 
 local MIN_SIZE = 12
@@ -27,13 +27,7 @@ local function getAllCrates()
             if drop then
                 local crateModel = drop:FindFirstChild("Crate")
                 if crateModel then
-                    local cratePart =
-                        crateModel.PrimaryPart
-                        or crateModel:FindFirstChildWhichIsA("BasePart")
-                    
-                    if cratePart then
-                        table.insert(crates, cratePart)
-                    end
+                    table.insert(crates, crateModel)
                 end
             end
         end
@@ -89,61 +83,62 @@ end
 
 
 -----------------------------------------------------
--- MAIN UPDATE
+-- MAIN UPDATE LOOP
 -----------------------------------------------------
 local function update()
-    -- Track what still exists
     local present = {}
 
-    ----------
-    -- Airdrop crates
-    ----------
-
-    for _, cratePart in ipairs(getAllCrates()) do
-        present[cratePart] = true
-
-        if not billboards[cratePart] then
-            billboards[cratePart] = createBillboard(cratePart, "Airdrop")
-        end
-
-        local cam = workspace.CurrentCamera
-        local dist = (cam.CFrame.Position - cratePart.Position).Magnitude
-        local scale = (dist <= MAX_DISTANCE)
-            and (MAX_SIZE - ((dist / MAX_DISTANCE) * (MAX_SIZE - MIN_SIZE)))
-            or MIN_SIZE
-
-        billboards[cratePart].Size = UDim2.new(0, scale, 0, scale)
-    end
-
-    ----------
-    -- Drone Loot
-    ----------
-    for _, loot in ipairs(getAllDroneLoot()) do
-        local primary = loot.PrimaryPart or loot:FindFirstChildWhichIsA("BasePart")
+    -----------------------
+    -- AIRDROP CRATES
+    -----------------------
+    for _, crateModel in ipairs(getAllCrates()) do
+        local primary = crateModel.PrimaryPart or crateModel:FindFirstChildWhichIsA("BasePart")
         if primary then
-            present[loot] = true
+            present[crateModel] = true
 
-            if not billboards[loot] then
-                billboards[loot] = createBillboard(primary, "Drone Loot")
+            if not billboards[crateModel] then
+                billboards[crateModel] = createBillboard(primary, "Airdrop")
             end
 
             local cam = workspace.CurrentCamera
             local dist = (cam.CFrame.Position - primary.Position).Magnitude
-            local scale = (dist <= MAX_DISTANCE)
-                and (MAX_SIZE - ((dist / MAX_DISTANCE) * (MAX_SIZE - MIN_SIZE)))
+            local scale = dist <= MAX_DISTANCE
+                and (MAX_SIZE - (dist / MAX_DISTANCE) * (MAX_SIZE - MIN_SIZE))
                 or MIN_SIZE
 
-            billboards[loot].Size = UDim2.new(0, scale, 0, scale)
+            billboards[crateModel].Size = UDim2.new(0, scale, 0, scale)
         end
     end
 
-    ----------
-    -- Cleanup removed objects
-    ----------
-    for inst, bb in pairs(billboards) do
-        if not present[inst] or not inst.Parent then
+    -----------------------
+    -- DRONE LOOT
+    -----------------------
+    for _, lootModel in ipairs(getAllDroneLoot()) do
+        local primary = lootModel.PrimaryPart or lootModel:FindFirstChildWhichIsA("BasePart")
+        if primary then
+            present[lootModel] = true
+
+            if not billboards[lootModel] then
+                billboards[lootModel] = createBillboard(primary, "Drone Loot")
+            end
+
+            local cam = workspace.CurrentCamera
+            local dist = (cam.CFrame.Position - primary.Position).Magnitude
+            local scale = dist <= MAX_DISTANCE
+                and (MAX_SIZE - (dist / MAX_DISTANCE) * (MAX_SIZE - MIN_SIZE))
+                or MIN_SIZE
+
+            billboards[lootModel].Size = UDim2.new(0, scale, 0, scale)
+        end
+    end
+
+    -----------------------
+    -- CLEANUP
+    -----------------------
+    for model, bb in pairs(billboards) do
+        if not present[model] or not model.Parent then
             bb:Destroy()
-            billboards[inst] = nil
+            billboards[model] = nil
         end
     end
 end
