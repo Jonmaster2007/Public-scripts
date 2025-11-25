@@ -1,5 +1,5 @@
 ---------------------------------------------------------------
--- Unified Noclip + Flight Controller (FINAL / STABLE)
+-- Unified Flight + True Original Noclip (Exact Behavior)
 -- Exports:
 --   getgenv().toggleFlight()
 --   getgenv().toggleNoclip()
@@ -16,10 +16,9 @@ local humanoid = character:WaitForChild("Humanoid")
 local root = character:WaitForChild("HumanoidRootPart")
 
 ---------------------------------------------------------------
--- GLOBAL STATES
+-- STATE TABLES
 ---------------------------------------------------------------
 getgenv().Flying = false
-getgenv().NoclipActive = false
 
 -- movement directions for flight
 getgenv().direction = getgenv().direction or {
@@ -32,7 +31,7 @@ getgenv().direction = getgenv().direction or {
 }
 
 ---------------------------------------------------------------
--- FLY BODY OBJECTS
+-- FLIGHT COMPONENTS
 ---------------------------------------------------------------
 local bv = Instance.new("BodyVelocity")
 bv.MaxForce = Vector3.new(1e6, 1e6, 1e6)
@@ -49,66 +48,31 @@ local decel = 6
 local currentSpeed = flySpeed
 
 ---------------------------------------------------------------
--- HANDLE RESPAWN
+-- CHARACTER RELOAD
 ---------------------------------------------------------------
 LocalPlayer.CharacterAdded:Connect(function(char)
     character = char
     humanoid = char:WaitForChild("Humanoid")
     root = char:WaitForChild("HumanoidRootPart")
 
-    -- Recreate flight components
-    bv = Instance.new("BodyVelocity")
-    bv.MaxForce = Vector3.new(1e6, 1e6, 1e6)
-    bv.Velocity = Vector3.zero
-
-    bg = Instance.new("BodyGyro")
-    bg.MaxTorque = Vector3.new(1e6, 1e6, 1e6)
-    bg.P = 1e5
-
-    -- Restart noclip if active
-    if getgenv().NoclipActive then
-        task.wait(0.1)
-        getgenv().startNoclipLoop()
+    -- if noclip was on before death, restart the loop
+    if Clip == false then
+        task.wait(0.2)
+        if Noclipping then Noclipping:Disconnect() end
+        Noclipping = RunService.Stepped:Connect(NoclipLoop)
     end
 end)
 
 ---------------------------------------------------------------
--- RELIABLE NOCLIP LOOP (SEPARATED)
----------------------------------------------------------------
-local noclipConn = nil
-
-local function applyNoclip()
-    if not character then return end
-    for _, part in ipairs(character:GetDescendants()) do
-        if part:IsA("BasePart") and part.Name ~= "HumanoidRootPart" then
-            part.CanCollide = false
-        end
-    end
-end
-
-getgenv().startNoclipLoop = function()
-    if noclipConn then noclipConn:Disconnect() end
-
-    noclipConn = RunService.Stepped:Connect(function()
-        if getgenv().NoclipActive then
-            applyNoclip()
-        end
-    end)
-end
-
-getgenv().stopNoclipLoop = function()
-    if noclipConn then
-        noclipConn:Disconnect()
-        noclipConn = nil
-    end
-end
-
----------------------------------------------------------------
--- FLIGHT LOOP (SEPARATED)
+-- FLIGHT LOOP (RENDER PRIORITY)
 ---------------------------------------------------------------
 RunService.RenderStepped:Connect(function()
-    if not character or not root or not humanoid then return end
 
+    if not character or not humanoid or not root then return end
+
+    ------------------------------------------------
+    -- FLIGHT
+    ------------------------------------------------
     if getgenv().Flying then
         humanoid.PlatformStand = true
 
@@ -145,23 +109,54 @@ RunService.RenderStepped:Connect(function()
 end)
 
 ---------------------------------------------------------------
--- PUBLIC TOGGLES
+-- TRUE ORIGINAL NOCLIP (EXACT BEHAVIOR CLONE)
+---------------------------------------------------------------
+local Clip = true
+local Noclipping = nil
+local floatName = "HumanoidRootPart"
+
+-- IMPORTANT: identical structure to working version
+function NoclipLoop()
+    if Clip == false and character ~= nil then
+        for _, child in pairs(character:GetDescendants()) do
+            if child:IsA("BasePart")
+                and child.CanCollide == true
+                and child.Name ~= floatName then
+
+                child.CanCollide = false
+            end
+        end
+    end
+end
+
+-- This EXACT behavior must be preserved
+getgenv().toggleNoclip = function()
+    Clip = not Clip
+
+    if Clip == false then
+        task.wait(0.1) -- THIS TIMING IS CRITICAL
+
+        if Noclipping then
+            Noclipping:Disconnect()
+        end
+
+        Noclipping = RunService.Stepped:Connect(NoclipLoop)
+        NoclipLoop() -- instant apply
+
+    else
+        if Noclipping then
+            Noclipping:Disconnect()
+        end
+        Noclipping = nil
+    end
+end
+
+---------------------------------------------------------------
+-- PUBLIC FLIGHT TOGGLER
 ---------------------------------------------------------------
 getgenv().toggleFlight = function()
     getgenv().Flying = not getgenv().Flying
     currentSpeed = flySpeed
-end
-
-getgenv().toggleNoclip = function()
-    getgenv().NoclipActive = not getgenv().NoclipActive
-
-    if getgenv().NoclipActive then
-        task.wait(0.05)
-        getgenv().startNoclipLoop()
-        applyNoclip()
-    else
-        getgenv().stopNoclipLoop()
-    end
 end
 
 return true
