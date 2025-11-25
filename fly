@@ -1,135 +1,134 @@
--- Services
+------------------------------
+-- Unified Fly + Noclip System
+------------------------------
+
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 local Workspace = game:GetService("Workspace")
 
--- Ensure global direction table exists
-if not getgenv().direction then
-    getgenv().direction = {forward=false, backward=false, left=false, right=false, up=false, down=false}
-end
-
--- Local player
-local LocalPlayer = Players.LocalPlayer or Players.PlayerAdded:Wait()
+local LocalPlayer = Players.LocalPlayer
 local character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
 local humanoid = character:WaitForChild("Humanoid")
-local rootPart = character:WaitForChild("HumanoidRootPart")
+local root = character:WaitForChild("HumanoidRootPart")
 
--- Flight control objects
-local velocity = Instance.new("BodyVelocity")
-velocity.MaxForce = Vector3.new(1e5, 1e5, 1e5)
-velocity.P = 1e5
-velocity.Velocity = Vector3.zero
+------------------------------------------------------
+-- STATE
+------------------------------------------------------
+getgenv().Flying = false
+getgenv().Noclipping = false
 
-local gyro = Instance.new("BodyGyro")
-gyro.MaxTorque = Vector3.new(1e5, 1e5, 1e5)
-gyro.P = 1e5
-gyro.CFrame = rootPart.CFrame
+-- movement directions
+local dir = {w=false, s=false, a=false, d=false, up=false, down=false}
 
--- Flight parameters
-local flying = false
-local baseSpeed = 20
+------------------------------------------------------
+-- FLY BODY OBJECTS
+------------------------------------------------------
+local bv = Instance.new("BodyVelocity")
+bv.MaxForce = Vector3.new(1e6, 1e6, 1e6)
+bv.Velocity = Vector3.zero
+
+local bg = Instance.new("BodyGyro")
+bg.MaxTorque = Vector3.new(1e6, 1e6, 1e6)
+bg.P = 1e5
+
+local flySpeed = 20
 local maxSpeed = 100
-local acceleration = 10
-local deceleration = 5
-local currentSpeed = baseSpeed
+local accel = 10
+local decel = 6
+local currentSpeed = flySpeed
 
--- Handle character respawn
-local function setupCharacter(char)
-    humanoid = char:WaitForChild("Humanoid")
-    rootPart = char:WaitForChild("HumanoidRootPart")
+------------------------------------------------------
+-- UNIFIED LOOP
+------------------------------------------------------
+RunService.RenderStepped:Connect(function()
 
-    velocity = Instance.new("BodyVelocity")
-    velocity.MaxForce = Vector3.new(1e5, 1e5, 1e5)
-    velocity.Velocity = Vector3.zero
+    character = LocalPlayer.Character
+    if not character then return end
+    root = character:FindFirstChild("HumanoidRootPart")
+    humanoid = character:FindFirstChild("Humanoid")
+    if not root or not humanoid then return end
 
-    gyro = Instance.new("BodyGyro")
-    gyro.MaxTorque = Vector3.new(1e5, 1e5, 1e5)
-    gyro.P = 1e5
-end
-
-LocalPlayer.CharacterAdded:Connect(setupCharacter)
-if LocalPlayer.Character then
-    setupCharacter(LocalPlayer.Character)
-end
-
--- Flight toggle function
-getgenv().toggleFlight = function()
-    flying = not flying
-
-    if flying and rootPart and humanoid then
+    ----------------------------
+    -- FLY MODE
+    ----------------------------
+    if getgenv().Flying then
         humanoid.PlatformStand = true
-        currentSpeed = baseSpeed
+        
+        bv.Parent = root
+        bg.Parent = root
 
-        velocity.Parent = rootPart
-        gyro.Parent = rootPart
+        local cam = Workspace.CurrentCamera
+        local move = Vector3.zero
 
-        RunService:BindToRenderStep("FlyControl", Enum.RenderPriority.Character.Value, function()
-            local cam = Workspace.CurrentCamera
-            local move = Vector3.zero
+        if dir.w then move += cam.CFrame.LookVector end
+        if dir.s then move -= cam.CFrame.LookVector end
+        if dir.a then move -= cam.CFrame.RightVector end
+        if dir.d then move += cam.CFrame.RightVector end
+        if dir.up then move += cam.CFrame.UpVector end
+        if dir.down then move -= cam.CFrame.UpVector end
 
-            if getgenv().direction.forward then move += cam.CFrame.LookVector end
-            if getgenv().direction.backward then move -= cam.CFrame.LookVector end
-            if getgenv().direction.left then move -= cam.CFrame.RightVector end
-            if getgenv().direction.right then move += cam.CFrame.RightVector end
-            if getgenv().direction.up then move += cam.CFrame.UpVector end
-            if getgenv().direction.down then move -= cam.CFrame.UpVector end
+        if move.Magnitude > 0 then
+            currentSpeed = math.min(currentSpeed + accel, maxSpeed)
+            bv.Velocity = move.Unit * currentSpeed
+        else
+            currentSpeed = math.max(currentSpeed - decel, flySpeed)
+            bv.Velocity = Vector3.zero
+        end
 
-            if move.Magnitude > 0 then
-                currentSpeed = math.min(currentSpeed + acceleration, maxSpeed)
-                velocity.Velocity = move.Unit * currentSpeed
-            else
-                velocity.Velocity = Vector3.zero
-                currentSpeed = math.max(currentSpeed - deceleration, baseSpeed)
-            end
-
-            gyro.CFrame = cam.CFrame
-        end)
+        bg.CFrame = cam.CFrame
+        
     else
-        if humanoid then humanoid.PlatformStand = false end
-        if velocity then velocity.Parent = nil end
-        if gyro then gyro.Parent = nil end
-        RunService:UnbindFromRenderStep("FlyControl")
+        -- disable fly
+        humanoid.PlatformStand = false
+        bv.Parent = nil
+        bg.Parent = nil
+        bv.Velocity = Vector3.zero
     end
+
+    ----------------------------
+    -- NOCLIP MODE
+    ----------------------------
+    if getgenv().Noclipping then
+        for _, p in ipairs(character:GetDescendants()) do
+            if p:IsA("BasePart") and p.Name ~= "HumanoidRootPart" then
+                p.CanCollide = false
+            end
+        end
+    end
+
+end)
+
+------------------------------------------------------
+-- TOGGLE FUNCTIONS
+------------------------------------------------------
+getgenv().ToggleFly = function()
+    getgenv().Flying = not getgenv().Flying
+    currentSpeed = flySpeed
 end
 
--- Input listeners
-UserInputService.InputBegan:Connect(function(input, gameProcessed)
-    if gameProcessed then return end
-    if input.UserInputType == Enum.UserInputType.Keyboard then
-        local code = input.KeyCode
-        if code == Enum.KeyCode.W then getgenv().direction.forward = true end
-        if code == Enum.KeyCode.S then getgenv().direction.backward = true end
-        if code == Enum.KeyCode.A then getgenv().direction.left = true end
-        if code == Enum.KeyCode.D then getgenv().direction.right = true end
-        if code == Enum.KeyCode.Space then getgenv().direction.up = true end
-        if code == Enum.KeyCode.LeftControl then getgenv().direction.down = true end
-    end
+getgenv().ToggleNoclip = function()
+    getgenv().Noclipping = not getgenv().Noclipping
+end
+
+------------------------------------------------------
+-- INPUT HANDLING
+------------------------------------------------------
+UserInputService.InputBegan:Connect(function(i, gp)
+    if gp then return end
+    if i.KeyCode == Enum.KeyCode.W then dir.w = true end
+    if i.KeyCode == Enum.KeyCode.S then dir.s = true end
+    if i.KeyCode == Enum.KeyCode.A then dir.a = true end
+    if i.KeyCode == Enum.KeyCode.D then dir.d = true end
+    if i.KeyCode == Enum.KeyCode.Space then dir.up = true end
+    if i.KeyCode == Enum.KeyCode.LeftControl then dir.down = true end
 end)
 
-UserInputService.InputEnded:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.Keyboard then
-        local code = input.KeyCode
-        if code == Enum.KeyCode.W then getgenv().direction.forward = false end
-        if code == Enum.KeyCode.S then getgenv().direction.backward = false end
-        if code == Enum.KeyCode.A then getgenv().direction.left = false end
-        if code == Enum.KeyCode.D then getgenv().direction.right = false end
-        if code == Enum.KeyCode.Space then getgenv().direction.up = false end
-        if code == Enum.KeyCode.LeftControl then getgenv().direction.down = false end
-    end
-end)
-
--- Rayfield keybind (place after UI is loaded)
-task.defer(function()
-    if KTab and KTab.CreateKeybind then
-        local FlyKeybind = KTab:CreateKeybind({
-            Name = "Fly Keybind",
-            CurrentKeybind = "Insert",
-            HoldToInteract = false,
-            Flag = "FlyKeybind",
-            Callback = function()
-                getgenv().toggleFlight()
-            end
-        })
-    end
+UserInputService.InputEnded:Connect(function(i)
+    if i.KeyCode == Enum.KeyCode.W then dir.w = false end
+    if i.KeyCode == Enum.KeyCode.S then dir.s = false end
+    if i.KeyCode == Enum.KeyCode.A then dir.a = false end
+    if i.KeyCode == Enum.KeyCode.D then dir.d = false end
+    if i.KeyCode == Enum.KeyCode.Space then dir.up = false end
+    if i.KeyCode == Enum.KeyCode.LeftControl then dir.down = false end
 end)
