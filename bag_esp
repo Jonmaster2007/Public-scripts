@@ -18,6 +18,7 @@ getgenv().defaultImportantItems = {
     ["Purple Keycard"] = Color3.fromRGB(128, 0, 128),
     ["Blue Keycard"] = Color3.fromRGB(0, 100, 230),
     ["Photon Accelerator"] = Color3.fromRGB(102, 0, 51),
+    ["Photon Alternator"] = Color3.fromRGB(102, 0, 51),
     ["Photon Blades"] = Color3.fromRGB(102, 0, 51),
     ["RSH-12"] = Color3.fromRGB(102, 0, 51),
     ["Red Flare Gun"] = Color3.fromRGB(102, 0, 51),
