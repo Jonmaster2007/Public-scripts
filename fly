@@ -1,9 +1,6 @@
----------------------------------------------------------------
+----------------------------------------------------------------
 -- Unified Flight + True Original Noclip (Exact Behavior)
--- Exports:
---   getgenv().toggleFlight()
---   getgenv().toggleNoclip()
----------------------------------------------------------------
+----------------------------------------------------------------
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -15,13 +12,12 @@ local character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
 local humanoid = character:WaitForChild("Humanoid")
 local root = character:WaitForChild("HumanoidRootPart")
 
----------------------------------------------------------------
--- STATE TABLES
----------------------------------------------------------------
+----------------------------------------------------------------
+-- STATE
+----------------------------------------------------------------
 getgenv().Flying = false
 
--- movement directions for flight
-getgenv().direction = getgenv().direction or {
+getgenv().direction = {
     forward = false,
     backward = false,
     left = false,
@@ -30,9 +26,9 @@ getgenv().direction = getgenv().direction or {
     down = false
 }
 
----------------------------------------------------------------
+----------------------------------------------------------------
 -- FLIGHT COMPONENTS
----------------------------------------------------------------
+----------------------------------------------------------------
 local bv = Instance.new("BodyVelocity")
 bv.MaxForce = Vector3.new(1e6, 1e6, 1e6)
 bv.Velocity = Vector3.zero
@@ -47,32 +43,12 @@ local accel = 10
 local decel = 6
 local currentSpeed = flySpeed
 
----------------------------------------------------------------
--- CHARACTER RELOAD
----------------------------------------------------------------
-LocalPlayer.CharacterAdded:Connect(function(char)
-    character = char
-    humanoid = char:WaitForChild("Humanoid")
-    root = char:WaitForChild("HumanoidRootPart")
-
-    -- if noclip was on before death, restart the loop
-    if Clip == false then
-        task.wait(0.2)
-        if Noclipping then Noclipping:Disconnect() end
-        Noclipping = RunService.Stepped:Connect(NoclipLoop)
-    end
-end)
-
----------------------------------------------------------------
--- FLIGHT LOOP (RENDER PRIORITY)
----------------------------------------------------------------
+----------------------------------------------------------------
+-- FLIGHT LOOP
+----------------------------------------------------------------
 RunService.RenderStepped:Connect(function()
-
     if not character or not humanoid or not root then return end
 
-    ------------------------------------------------
-    -- FLIGHT
-    ------------------------------------------------
     if getgenv().Flying then
         humanoid.PlatformStand = true
 
@@ -99,7 +75,6 @@ RunService.RenderStepped:Connect(function()
         end
 
         bg.CFrame = cam.CFrame
-
     else
         humanoid.PlatformStand = false
         bv.Parent = nil
@@ -108,79 +83,83 @@ RunService.RenderStepped:Connect(function()
     end
 end)
 
----------------------------------------------------------------
--- TRUE ORIGINAL NOCLIP — AUTO DISABLE ON DEATH
----------------------------------------------------------------
+----------------------------------------------------------------
+-- TRUE ORIGINAL NOCLIP
+----------------------------------------------------------------
 
+local floatName = "HumanoidRootPart"
 local Clip = true
 local Noclipping = nil
-local floatName = "HumanoidRootPart"
 
--- noclip loop
-local function NoclipLoop()
-    local char = LocalPlayer.Character
-    if Clip == false and char ~= nil then
-        for _, child in ipairs(char:GetDescendants()) do
-            if child:IsA("BasePart")
-                and child.CanCollide == true
-                and child.Name ~= floatName then
-                child.CanCollide = false
+local function CreateNoclipLoop()
+    return function()
+        if Clip == false then
+            local char = LocalPlayer.Character
+            if char then
+                for _, child in pairs(char:GetDescendants()) do
+                    if child:IsA("BasePart")
+                        and child.CanCollide == true
+                        and child.Name ~= floatName then
+                        child.CanCollide = false
+                    end
+                end
             end
         end
     end
 end
 
--- toggle function
-getgenv().toggleNoclip = function()
-    Clip = not Clip
+getgenv().enableNoclip = function()
+    Clip = false
 
-    if Clip == false then
-        -- enable noclip
-        task.wait(0.1)
+    task.wait(0.1)
 
-        if Noclipping then
-            Noclipping:Disconnect()
-        end
-
-        Noclipping = RunService.Stepped:Connect(NoclipLoop)
-        NoclipLoop()
-
-    else
-        -- disable noclip
-        if Noclipping then
-            Noclipping:Disconnect()
-        end
-        Noclipping = nil
+    if Noclipping then
+        Noclipping:Disconnect()
     end
+
+    local loop = CreateNoclipLoop()
+    Noclipping = RunService.Stepped:Connect(loop)
+    loop()
 end
 
----------------------------------------------------------------
--- AUTO-DISABLE NOCLIP ON DEATH
----------------------------------------------------------------
-LocalPlayer.CharacterRemoving:Connect(function()
-    -- FORCE disable noclip as soon as death starts
+getgenv().disableNoclip = function()
     Clip = true
 
     if Noclipping then
         Noclipping:Disconnect()
         Noclipping = nil
     end
+end
+
+getgenv().toggleNoclip = function()
+    if Clip then
+        getgenv().enableNoclip()
+    else
+        getgenv().disableNoclip()
+    end
+end
+
+----------------------------------------------------------------
+-- DEATH HANDLING (matches original)
+----------------------------------------------------------------
+LocalPlayer.CharacterRemoving:Connect(function()
+    Clip = true
+    if Noclipping then
+        Noclipping:Disconnect()
+        Noclipping = nil
+    end
 end)
 
----------------------------------------------------------------
--- RESPAWN: do NOT re-enable noclip
----------------------------------------------------------------
 LocalPlayer.CharacterAdded:Connect(function(char)
-    -- Rebuild references only; DO NOT toggle noclip back on
     task.wait(0.1)
     character = char
     humanoid = char:WaitForChild("Humanoid")
     root = char:WaitForChild("HumanoidRootPart")
 end)
 
----------------------------------------------------------------
+----------------------------------------------------------------
 -- PUBLIC FLIGHT TOGGLER
----------------------------------------------------------------
+----------------------------------------------------------------
 getgenv().toggleFlight = function()
     getgenv().Flying = not getgenv().Flying
     currentSpeed = flySpeed
